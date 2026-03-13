@@ -122,8 +122,23 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* 인쇄 최적화 */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    font-size: 10pt;
+  }
+  @page {
+    size: A4;
+    margin: 15mm;
   }
 }
