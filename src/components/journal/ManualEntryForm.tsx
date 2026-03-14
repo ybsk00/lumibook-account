@@ -16,6 +16,7 @@ import { PartnerCombobox } from "@/components/common/PartnerCombobox";
 import { useJournalValidation } from "@/hooks/useJournalValidation";
 import { formatAmount } from "@/lib/format";
 import { Plus, Trash2, Check } from "lucide-react";
+import { useUserId } from "@/hooks/useUserId";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 interface EntryLine {
@@ -35,6 +36,7 @@ const EMPTY_LINE: EntryLine = {
 };
 
 export function ManualEntryForm() {
+  const userId = useUserId();
   const createJournal = useMutation(api.journals.create);
   const createEntries = useMutation(api.journalEntries.createBatch);
 
@@ -59,6 +61,7 @@ export function ManualEntryForm() {
   };
 
   const handleSave = async () => {
+    if (!userId) return;
     if (!valid) return;
     if (!description) {
       alert("적요를 입력해주세요.");
@@ -72,6 +75,7 @@ export function ManualEntryForm() {
     setSaving(true);
     try {
       const journalId = await createJournal({
+        userId,
         journalDate: date,
         journalType,
         description,

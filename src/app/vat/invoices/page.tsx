@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
+import { useUserId } from "@/hooks/useUserId";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +25,9 @@ import { Plus } from "lucide-react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 export default function TaxInvoicesPage() {
-  const salesInvoices = useQuery(api.taxInvoices.list, { invoiceType: "sales" });
-  const purchaseInvoices = useQuery(api.taxInvoices.list, { invoiceType: "purchase" });
+  const userId = useUserId();
+  const salesInvoices = useQuery(api.taxInvoices.list, userId ? { userId, invoiceType: "sales" } : "skip");
+  const purchaseInvoices = useQuery(api.taxInvoices.list, userId ? { userId, invoiceType: "purchase" } : "skip");
   const createInvoice = useMutation(api.taxInvoices.create);
 
   const [open, setOpen] = useState(false);
@@ -50,8 +52,10 @@ export default function TaxInvoicesPage() {
   };
 
   const handleCreate = async () => {
+    if (!userId) return;
     if (!form.partnerId) { alert("거래처를 선택해주세요."); return; }
     await createInvoice({
+      userId,
       ...form,
       partnerId: form.partnerId,
       totalAmount: form.supplyAmount + form.taxAmount,

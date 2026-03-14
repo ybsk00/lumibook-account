@@ -3,12 +3,16 @@ import { v } from "convex/values";
 
 export const list = query({
   args: {
+    userId: v.id("users"),
     invoiceType: v.optional(v.string()),
     startDate: v.optional(v.string()),
     endDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    let invoices = await ctx.db.query("taxInvoices").collect();
+    let invoices = await ctx.db
+      .query("taxInvoices")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     if (args.invoiceType) {
       invoices = invoices.filter((i) => i.invoiceType === args.invoiceType);
     }
@@ -24,6 +28,7 @@ export const list = query({
 
 export const create = mutation({
   args: {
+    userId: v.id("users"),
     invoiceType: v.string(),
     invoiceNumber: v.optional(v.string()),
     invoiceDate: v.string(),

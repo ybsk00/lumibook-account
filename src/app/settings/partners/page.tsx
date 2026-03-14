@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
+import { useUserId } from "@/hooks/useUserId";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,8 @@ import { Plus } from "lucide-react";
 import { formatBusinessNumber } from "@/lib/format";
 
 export default function PartnersPage() {
-  const partners = useQuery(api.partners.list, {});
+  const userId = useUserId();
+  const partners = useQuery(api.partners.list, userId ? { userId } : "skip");
   const createPartner = useMutation(api.partners.create);
   const toggleActive = useMutation(api.partners.toggleActive);
 
@@ -38,7 +40,9 @@ export default function PartnersPage() {
   });
 
   const handleCreate = async () => {
+    if (!userId) return;
     await createPartner({
+      userId,
       name: form.name,
       businessNumber: form.businessNumber,
       representative: form.representative || undefined,

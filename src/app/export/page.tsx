@@ -2,6 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { useUserId } from "@/hooks/useUserId";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,16 +20,18 @@ import {
 import { Copy, Printer } from "lucide-react";
 
 export default function ExportPage() {
+  const userId = useUserId();
   const year = new Date().getFullYear();
-  const balances = useQuery(api.hometax.getHometaxData, {
+  const balances = useQuery(api.hometax.getHometaxData, userId ? {
+    userId,
     fiscalYear: year,
     endDate: `${year}-12-31`,
-  });
-  const settings = useQuery(api.settings.get);
+  } : "skip");
+  const user = useQuery(api.auth.getUser, userId ? { userId } : "skip");
 
   if (!balances) return <div className="p-8 text-center text-muted-foreground">로딩 중...</div>;
 
-  const companyName = settings?.companyName ?? "주식회사 루미브리즈";
+  const companyName = user?.companyName ?? "주식회사 루미브리즈";
 
   // 대차대조표 계산
   const bsAssets = BS_ASSET_MAPPING.map((f) => ({

@@ -4,6 +4,7 @@ import { v } from "convex/values";
 // 세금계산서 일괄 등록 + 자동 전표 생성
 export const batchCreateWithJournals = mutation({
   args: {
+    userId: v.id("users"),
     items: v.array(
       v.object({
         invoiceType: v.string(),        // "sales" | "purchase"
@@ -22,8 +23,14 @@ export const batchCreateWithJournals = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const accounts = await ctx.db.query("accounts").collect();
-    const partners = await ctx.db.query("partners").collect();
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    const partners = await ctx.db
+      .query("partners")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
 
     const accountByCode = new Map(accounts.map((a) => [a.code, a]));
     const partnerByName = new Map(partners.map((p) => [p.name, p]));
@@ -44,6 +51,7 @@ export const batchCreateWithJournals = mutation({
       if (!partner) {
         // 신규 거래처 자동 등록
         const partnerId = await ctx.db.insert("partners", {
+          userId: args.userId,
           name: item.partnerName,
           businessNumber: item.partnerBusinessNumber || "000-00-00000",
           partnerType: item.invoiceType === "sales" ? "customer" : "vendor",
@@ -63,6 +71,7 @@ export const batchCreateWithJournals = mutation({
 
       // 2. 세금계산서 등록
       const invoiceId = await ctx.db.insert("taxInvoices", {
+        userId: args.userId,
         invoiceType: item.invoiceType,
         invoiceNumber: item.invoiceNumber || undefined,
         invoiceDate: item.invoiceDate,
@@ -80,7 +89,9 @@ export const batchCreateWithJournals = mutation({
       if (!dateCountCache.has(item.invoiceDate)) {
         const existing = await ctx.db
           .query("journals")
-          .withIndex("by_date", (q) => q.eq("journalDate", item.invoiceDate))
+          .withIndex("by_user_date", (q) =>
+            q.eq("userId", args.userId).eq("journalDate", item.invoiceDate)
+          )
           .collect();
         dateCountCache.set(item.invoiceDate, existing.length);
       }
@@ -99,6 +110,7 @@ export const batchCreateWithJournals = mutation({
         : `${item.partnerName} 세금계산서`;
 
       const journalId = await ctx.db.insert("journals", {
+        userId: args.userId,
         journalNumber,
         journalDate: item.invoiceDate,
         journalType,

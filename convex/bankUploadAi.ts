@@ -38,6 +38,7 @@ vatSeparation이 true이면 시스템이 자동으로 공급가액/세액을 분
 
 export const classifyBatch = action({
   args: {
+    userId: v.id("users"),
     transactions: v.array(
       v.object({
         id: v.string(),
@@ -49,7 +50,9 @@ export const classifyBatch = action({
     ),
   },
   handler: async (ctx, args) => {
-    const context = await ctx.runQuery(api.bankUpload.getClassificationContext);
+    const context = await ctx.runQuery(api.bankUpload.getClassificationContext, {
+      userId: args.userId,
+    });
 
     const accountList = context.accounts
       .map((a: { code: string; name: string; category: string; subCategory: string }) =>

@@ -2,17 +2,21 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const list = query({
-  args: { fiscalYear: v.number() },
+  args: { userId: v.id("users"), fiscalYear: v.number() },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("vatPeriods")
-      .withIndex("by_fiscal_year", (q) => q.eq("fiscalYear", args.fiscalYear))
-      .collect();
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect()
+      .then((periods) =>
+        periods.filter((p) => p.fiscalYear === args.fiscalYear)
+      );
   },
 });
 
 export const create = mutation({
   args: {
+    userId: v.id("users"),
     periodType: v.string(),
     startDate: v.string(),
     endDate: v.string(),

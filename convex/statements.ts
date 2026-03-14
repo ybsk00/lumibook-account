@@ -4,19 +4,28 @@ import { v } from "convex/values";
 // 재무상태표 데이터
 export const getBalanceSheet = query({
   args: {
+    userId: v.id("users"),
     fiscalYear: v.number(),
     endDate: v.string(),
   },
   handler: async (ctx, args) => {
-    const accounts = await ctx.db.query("accounts").collect();
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     const active = accounts.filter((a) => a.isActive);
 
     const obs = await ctx.db
       .query("openingBalances")
-      .withIndex("by_fiscal_year", (q) => q.eq("fiscalYear", args.fiscalYear))
+      .withIndex("by_user_fiscal", (q) =>
+        q.eq("userId", args.userId).eq("fiscalYear", args.fiscalYear)
+      )
       .collect();
 
-    const journals = await ctx.db.query("journals").collect();
+    const journals = await ctx.db
+      .query("journals")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     const confirmed = journals.filter(
       (j) =>
         j.status === "confirmed" &&
@@ -103,15 +112,22 @@ export const getBalanceSheet = query({
 // 손익계산서 데이터
 export const getIncomeStatement = query({
   args: {
+    userId: v.id("users"),
     fiscalYear: v.number(),
     startDate: v.string(),
     endDate: v.string(),
   },
   handler: async (ctx, args) => {
-    const accounts = await ctx.db.query("accounts").collect();
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     const active = accounts.filter((a) => a.isActive);
 
-    const journals = await ctx.db.query("journals").collect();
+    const journals = await ctx.db
+      .query("journals")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     const confirmed = journals.filter(
       (j) =>
         j.status === "confirmed" &&
@@ -178,19 +194,28 @@ export const getIncomeStatement = query({
 // 합계잔액시산표
 export const getTrialBalance = query({
   args: {
+    userId: v.id("users"),
     fiscalYear: v.number(),
     endDate: v.string(),
   },
   handler: async (ctx, args) => {
-    const accounts = await ctx.db.query("accounts").collect();
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     const active = accounts.filter((a) => a.isActive);
 
     const obs = await ctx.db
       .query("openingBalances")
-      .withIndex("by_fiscal_year", (q) => q.eq("fiscalYear", args.fiscalYear))
+      .withIndex("by_user_fiscal", (q) =>
+        q.eq("userId", args.userId).eq("fiscalYear", args.fiscalYear)
+      )
       .collect();
 
-    const journals = await ctx.db.query("journals").collect();
+    const journals = await ctx.db
+      .query("journals")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     const confirmed = journals.filter(
       (j) => j.status === "confirmed" && j.fiscalYear === args.fiscalYear && j.journalDate <= args.endDate
     );

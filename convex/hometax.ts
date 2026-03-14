@@ -3,19 +3,28 @@ import { v } from "convex/values";
 
 export const getHometaxData = query({
   args: {
+    userId: v.id("users"),
     fiscalYear: v.number(),
     endDate: v.string(),
   },
   handler: async (ctx, args) => {
-    const accounts = await ctx.db.query("accounts").collect();
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     const active = accounts.filter((a) => a.isActive);
 
     const obs = await ctx.db
       .query("openingBalances")
-      .withIndex("by_fiscal_year", (q) => q.eq("fiscalYear", args.fiscalYear))
+      .withIndex("by_user_fiscal", (q) =>
+        q.eq("userId", args.userId).eq("fiscalYear", args.fiscalYear)
+      )
       .collect();
 
-    const journals = await ctx.db.query("journals").collect();
+    const journals = await ctx.db
+      .query("journals")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     const confirmed = journals.filter(
       (j) => j.status === "confirmed" && j.fiscalYear === args.fiscalYear && j.journalDate <= args.endDate
     );

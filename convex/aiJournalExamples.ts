@@ -2,14 +2,20 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const getExamples = query({
-  args: {},
-  handler: async (ctx) => {
-    return await ctx.db.query("aiJournalExamples").order("desc").take(20);
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const examples = await ctx.db
+      .query("aiJournalExamples")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .take(20);
+    return examples;
   },
 });
 
 export const saveExample = mutation({
   args: {
+    userId: v.id("users"),
     inputDescription: v.string(),
     inputType: v.string(),
     resultEntries: v.array(
@@ -24,6 +30,7 @@ export const saveExample = mutation({
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("aiJournalExamples", {
+      userId: args.userId,
       inputDescription: args.inputDescription,
       inputType: args.inputType,
       resultEntries: args.resultEntries,

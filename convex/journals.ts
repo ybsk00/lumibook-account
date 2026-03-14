@@ -3,13 +3,17 @@ import { v } from "convex/values";
 
 export const list = query({
   args: {
+    userId: v.id("users"),
     fiscalYear: v.optional(v.number()),
     status: v.optional(v.string()),
     startDate: v.optional(v.string()),
     endDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    let journals = await ctx.db.query("journals").collect();
+    let journals = await ctx.db
+      .query("journals")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
 
     if (args.fiscalYear) {
       journals = journals.filter((j) => j.fiscalYear === args.fiscalYear);
@@ -36,20 +40,24 @@ export const getById = query({
 });
 
 export const generateNumber = query({
-  args: { date: v.string() },
+  args: { userId: v.id("users"), date: v.string() },
   handler: async (ctx, args) => {
     const prefix = args.date.replace(/-/g, "");
     const existing = await ctx.db
       .query("journals")
-      .withIndex("by_date", (q) => q.eq("journalDate", args.date))
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
-    const seq = String(existing.length + 1).padStart(3, "0");
+    const sameDateJournals = existing.filter(
+      (j) => j.journalDate === args.date
+    );
+    const seq = String(sameDateJournals.length + 1).padStart(3, "0");
     return `${prefix}-${seq}`;
   },
 });
 
 export const create = mutation({
   args: {
+    userId: v.id("users"),
     journalDate: v.string(),
     journalType: v.string(),
     description: v.string(),
@@ -67,9 +75,12 @@ export const create = mutation({
     const prefix = args.journalDate.replace(/-/g, "");
     const existing = await ctx.db
       .query("journals")
-      .withIndex("by_date", (q) => q.eq("journalDate", args.journalDate))
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
-    const seq = String(existing.length + 1).padStart(3, "0");
+    const sameDateJournals = existing.filter(
+      (j) => j.journalDate === args.journalDate
+    );
+    const seq = String(sameDateJournals.length + 1).padStart(3, "0");
     const journalNumber = `${prefix}-${seq}`;
 
     const dateParts = args.journalDate.split("-");
@@ -77,6 +88,7 @@ export const create = mutation({
     const fiscalMonth = parseInt(dateParts[1]);
 
     return await ctx.db.insert("journals", {
+      userId: args.userId,
       journalNumber,
       journalDate: args.journalDate,
       journalType: args.journalType,

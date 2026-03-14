@@ -15,6 +15,7 @@ import { AccountCombobox } from "@/components/common/AccountCombobox";
 import { parseTaxInvoiceExcel, type TaxInvoiceRow } from "@/lib/taxInvoiceExcelParser";
 import { formatAmount } from "@/lib/format";
 import { Upload, FileSpreadsheet, Loader2, Check, AlertCircle, X } from "lucide-react";
+import { useUserId } from "@/hooks/useUserId";
 
 type Phase = "upload" | "parsing" | "review" | "saving" | "done";
 
@@ -57,6 +58,7 @@ interface ReviewRow {
 }
 
 export function TaxInvoiceUploadForm() {
+  const userId = useUserId();
   const [phase, setPhase] = useState<Phase>("upload");
   const [rows, setRows] = useState<ReviewRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -128,6 +130,7 @@ export function TaxInvoiceUploadForm() {
   };
 
   const handleApprove = async () => {
+    if (!userId) return;
     const selected = rows.filter((r) => r.selected);
     if (selected.length === 0) return;
 
@@ -157,7 +160,7 @@ export function TaxInvoiceUploadForm() {
 
       for (let i = 0; i < items.length; i += CHUNK_SIZE) {
         const chunk = items.slice(i, i + CHUNK_SIZE);
-        const res = await batchCreate({ items: chunk });
+        const res = await batchCreate({ userId, items: chunk });
         totalInvoices += res.invoices;
         totalJournals += res.journals;
         totalPartners += res.newPartners;

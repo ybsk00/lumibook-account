@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
+import { useUserId } from "@/hooks/useUserId";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +35,8 @@ import { Plus } from "lucide-react";
 const CATEGORIES = ["전체", "자산", "부채", "자본", "수익", "비용"];
 
 export default function AccountsPage() {
-  const accounts = useQuery(api.accounts.list, {});
+  const userId = useUserId();
+  const accounts = useQuery(api.accounts.list, userId ? { userId } : "skip");
   const createAccount = useMutation(api.accounts.create);
   const toggleActive = useMutation(api.accounts.toggleActive);
   const seedAccounts = useMutation(api.seed.seedAccounts);
@@ -54,7 +56,9 @@ export default function AccountsPage() {
   const sorted = [...filtered].sort((a, b) => a.sortOrder - b.sortOrder);
 
   const handleCreate = async () => {
+    if (!userId) return;
     await createAccount({
+      userId,
       ...newAccount,
       sortOrder: (accounts?.length ?? 0) + 1,
     });
@@ -63,7 +67,8 @@ export default function AccountsPage() {
   };
 
   const handleSeed = async () => {
-    const result = await seedAccounts({});
+    if (!userId) return;
+    const result = await seedAccounts({ userId });
     alert(result.message);
   };
 

@@ -9,6 +9,7 @@ import { parseBankExcel, type BankTransaction } from "@/lib/bankExcelParser";
 import { classifyTransactionsLocal, type ClassificationResult } from "@/lib/bankClassificationRules";
 import { BankTransactionReviewTable } from "./BankTransactionReviewTable";
 import { Upload, FileSpreadsheet, Loader2, Check, AlertCircle } from "lucide-react";
+import { useUserId } from "@/hooks/useUserId";
 
 type Phase = "upload" | "parsing" | "classifying" | "review" | "saving" | "done";
 
@@ -20,7 +21,8 @@ export function BankUploadForm() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ created: number; total: number } | null>(null);
 
-  const context = useQuery(api.bankUpload.getClassificationContext);
+  const userId = useUserId();
+  const context = useQuery(api.bankUpload.getClassificationContext, userId ? { userId } : "skip");
   const classifyAi = useAction(api.bankUploadAi.classifyBatch);
   const batchCreate = useMutation(api.bankUpload.batchCreateJournals);
 
@@ -57,6 +59,7 @@ export function BankUploadForm() {
         setProgress(`3차 AI 분류 중... (${unclassified.length}건)`);
         try {
           const aiResults = await classifyAi({
+            userId: userId!,
             transactions: unclassified.map((tx) => ({
               id: tx.id,
               date: tx.date,
@@ -285,7 +288,7 @@ export function BankUploadForm() {
       for (let i = 0; i < batchItems.length; i += CHUNK_SIZE) {
         const chunk = batchItems.slice(i, i + CHUNK_SIZE);
         setProgress(`전표 생성 중... (${i + 1}~${Math.min(i + CHUNK_SIZE, batchItems.length)} / ${batchItems.length})`);
-        const res = await batchCreate({ items: chunk });
+        const res = await batchCreate({ userId: userId!, items: chunk });
         totalCreated += res.created;
       }
 

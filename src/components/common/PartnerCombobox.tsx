@@ -10,6 +10,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUserId } from "@/hooks/useUserId";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 interface PartnerComboboxProps {
@@ -18,7 +19,8 @@ interface PartnerComboboxProps {
 }
 
 export function PartnerCombobox({ value, onChange }: PartnerComboboxProps) {
-  const partners = useQuery(api.partners.list, { activeOnly: true });
+  const userId = useUserId();
+  const partners = useQuery(api.partners.list, userId ? { userId, activeOnly: true } : "skip");
   const [open, setOpen] = useState(false);
 
   const selected = partners?.find((p) => p._id === value);

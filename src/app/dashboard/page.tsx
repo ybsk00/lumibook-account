@@ -2,12 +2,14 @@
 
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { useUserId } from "@/hooks/useUserId";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatAmount } from "@/lib/format";
 import { TrendingUp, TrendingDown, DollarSign, FileText } from "lucide-react";
 
 export default function DashboardPage() {
-  const settings = useQuery(api.settings.get);
+  const userId = useUserId();
+  const user = useQuery(api.auth.getUser, userId ? { userId } : "skip");
 
   const metrics = [
     {
@@ -78,7 +80,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              결산 체크리스트 ({settings?.currentFiscalYear ?? 2025})
+              결산 체크리스트 ({user?.currentFiscalYear ?? 2025})
             </CardTitle>
           </CardHeader>
           <CardContent>

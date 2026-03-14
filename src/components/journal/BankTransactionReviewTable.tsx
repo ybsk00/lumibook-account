@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { useUserId } from "@/hooks/useUserId";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -52,7 +53,8 @@ export function BankTransactionReviewTable({
   onApprove,
   approving,
 }: BankTransactionReviewTableProps) {
-  const accounts = useQuery(api.accounts.list, { activeOnly: true });
+  const userId = useUserId();
+  const accounts = useQuery(api.accounts.list, userId ? { userId, activeOnly: true } : "skip");
 
   // classification을 transaction id로 매핑
   const classMap = new Map(classifications.map((c) => [c.transactionId, c]));

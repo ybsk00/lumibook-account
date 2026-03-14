@@ -1,4 +1,5 @@
 import { mutation } from "./_generated/server";
+import { v } from "convex/values";
 
 const ACCOUNTS_DATA = [
   // ─── 자산 (1xx) ───
@@ -89,17 +90,21 @@ const ACCOUNTS_DATA = [
 ];
 
 export const seedAccounts = mutation({
-  args: {},
-  handler: async (ctx) => {
-    // 기존 데이터 확인
-    const existing = await ctx.db.query("accounts").first();
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    // Check if user already has accounts
+    const existing = await ctx.db
+      .query("accounts")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
     if (existing) {
-      return { message: "계정과목이 이미 존재합니다. 시드를 건너뜁니다." };
+      return { message: "계정과목이 이미 존재합니다." };
     }
 
     for (let i = 0; i < ACCOUNTS_DATA.length; i++) {
       const acc = ACCOUNTS_DATA[i];
       await ctx.db.insert("accounts", {
+        userId: args.userId,
         ...acc,
         isActive: true,
         sortOrder: i + 1,
@@ -107,28 +112,5 @@ export const seedAccounts = mutation({
     }
 
     return { message: `${ACCOUNTS_DATA.length}개 계정과목을 삽입했습니다.` };
-  },
-});
-
-export const seedCompanySettings = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const existing = await ctx.db.query("companySettings").first();
-    if (existing) {
-      return { message: "회사 설정이 이미 존재합니다." };
-    }
-
-    await ctx.db.insert("companySettings", {
-      companyName: "주식회사 루미브리즈",
-      businessNumber: "000-00-00000",
-      representative: "유범석",
-      businessType: "서비스업",
-      businessItem: "소프트웨어 개발",
-      address: "",
-      fiscalYearStart: 1,
-      currentFiscalYear: 2025,
-    });
-
-    return { message: "회사 설정을 생성했습니다." };
   },
 });

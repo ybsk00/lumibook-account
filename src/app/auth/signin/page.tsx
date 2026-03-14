@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -74,6 +75,12 @@ export default function SignInPage() {
               {loading ? "로그인 중..." : "로그인"}
             </Button>
           </form>
+          <p className="text-center text-sm text-muted-foreground mt-4">
+            계정이 없으신가요?{" "}
+            <Link href="/auth/signup" className="text-primary hover:underline">
+              회원가입
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>

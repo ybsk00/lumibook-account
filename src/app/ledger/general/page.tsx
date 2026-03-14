@@ -10,22 +10,25 @@ import {
 } from "@/components/ui/table";
 import { DateRangePicker } from "@/components/common/DateRangePicker";
 import { formatAmount } from "@/lib/format";
+import { useUserId } from "@/hooks/useUserId";
 import Link from "next/link";
 
 const CATEGORIES = ["전체", "자산", "부채", "자본", "수익", "비용"];
 
 export default function GeneralLedgerPage() {
+  const userId = useUserId();
   const year = new Date().getFullYear();
   const [startDate, setStartDate] = useState(`${year}-01-01`);
   const [endDate, setEndDate] = useState(`${year}-12-31`);
   const [filter, setFilter] = useState("전체");
   const [showZero, setShowZero] = useState(false);
 
-  const data = useQuery(api.ledger.getGeneralLedger, {
+  const data = useQuery(api.ledger.getGeneralLedger, userId ? {
+    userId,
     fiscalYear: year,
     startDate,
     endDate,
-  });
+  } : "skip");
 
   const filtered = (data ?? [])
     .filter((r) => filter === "전체" || r.category === filter)

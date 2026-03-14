@@ -10,9 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DateRangePicker } from "@/components/common/DateRangePicker";
 import { PartnerCombobox } from "@/components/common/PartnerCombobox";
 import { formatAmount, formatDate } from "@/lib/format";
+import { useUserId } from "@/hooks/useUserId";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 export default function PartnerLedgerPage() {
+  const userId = useUserId();
   const year = new Date().getFullYear();
   const [partnerId, setPartnerId] = useState<Id<"partners"> | null>(null);
   const [startDate, setStartDate] = useState(`${year}-01-01`);
@@ -20,7 +22,7 @@ export default function PartnerLedgerPage() {
 
   const data = useQuery(
     api.ledger.getPartnerLedger,
-    partnerId ? { partnerId, startDate, endDate } : "skip"
+    userId && partnerId ? { userId, partnerId, startDate, endDate } : "skip"
   );
 
   const totalDebit = data?.entries.reduce((s, e) => s + e.debitAmount, 0) ?? 0;

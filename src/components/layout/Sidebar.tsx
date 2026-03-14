@@ -67,6 +67,7 @@ const menuGroups = [
       { href: "/settings/company", label: "회사정보", icon: Building2 },
       { href: "/settings/accounts", label: "계정과목", icon: BookOpen },
       { href: "/settings/partners", label: "거래처", icon: User2 },
+      { href: "/settings/opening", label: "기초잔액", icon: FileText },
     ],
   },
 ];

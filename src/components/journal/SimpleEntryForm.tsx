@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { AmountInput } from "@/components/common/AmountInput";
 import { AiResultPreview } from "./AiResultPreview";
 import { Loader2, Sparkles } from "lucide-react";
+import { useUserId } from "@/hooks/useUserId";
 
 interface AiResult {
   journalType: string;
@@ -24,6 +25,7 @@ interface AiResult {
 }
 
 export function SimpleEntryForm() {
+  const userId = useUserId();
   const generateJournal = useAction(api.aiJournal.generateJournal);
 
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
@@ -35,6 +37,7 @@ export function SimpleEntryForm() {
   const [result, setResult] = useState<AiResult | null>(null);
 
   const handleGenerate = async () => {
+    if (!userId) return;
     if (!amount || !description) {
       setError("금액과 내용을 입력해주세요.");
       return;
@@ -45,7 +48,7 @@ export function SimpleEntryForm() {
     setResult(null);
 
     try {
-      const res = await generateJournal({ type, amount, description });
+      const res = await generateJournal({ userId, type, amount, description });
       setResult(res as AiResult);
     } catch (err) {
       setError(err instanceof Error ? err.message : "AI 분개 생성에 실패했습니다.");

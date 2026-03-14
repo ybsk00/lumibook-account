@@ -1,14 +1,13 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { useCompanyName } from "@/hooks/useUserId";
 
 export function Header() {
   const { data: session } = useSession();
-  const settings = useQuery(api.settings.get);
+  const companyName = useCompanyName();
 
-  const fiscalYear = settings?.currentFiscalYear ?? 2025;
+  const fiscalYear = new Date().getFullYear();
   const period = `제 ${fiscalYear - 2022}기 ${fiscalYear}.01.01 ~ ${fiscalYear}.12.31`;
 
   return (

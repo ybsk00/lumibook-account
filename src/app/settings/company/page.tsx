@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
+import { useUserId } from "@/hooks/useUserId";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatBusinessNumber } from "@/lib/format";
 
 export default function CompanySettingsPage() {
-  const settings = useQuery(api.settings.get);
-  const upsert = useMutation(api.settings.upsert);
+  const userId = useUserId();
+  const user = useQuery(api.auth.getUser, userId ? { userId } : "skip");
+  const updateUser = useMutation(api.auth.updateUser);
 
   const [form, setForm] = useState({
     companyName: "",
@@ -28,28 +30,30 @@ export default function CompanySettingsPage() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    if (settings) {
+    if (user) {
       setForm({
-        companyName: settings.companyName,
-        businessNumber: settings.businessNumber,
-        corporateNumber: settings.corporateNumber ?? "",
-        representative: settings.representative,
-        businessType: settings.businessType ?? "",
-        businessItem: settings.businessItem ?? "",
-        address: settings.address ?? "",
-        fiscalYearStart: settings.fiscalYearStart,
-        currentFiscalYear: settings.currentFiscalYear,
+        companyName: user.companyName ?? "",
+        businessNumber: user.businessNumber ?? "",
+        corporateNumber: user.corporateNumber ?? "",
+        representative: user.name ?? "",
+        businessType: user.businessType ?? "",
+        businessItem: user.businessItem ?? "",
+        address: user.address ?? "",
+        fiscalYearStart: user.fiscalYearStart ?? 1,
+        currentFiscalYear: user.currentFiscalYear ?? 2025,
       });
     }
-  }, [settings]);
+  }, [user]);
 
   const handleSave = async () => {
+    if (!userId) return;
     setSaving(true);
-    await upsert({
+    await updateUser({
+      userId,
       companyName: form.companyName,
       businessNumber: form.businessNumber,
       corporateNumber: form.corporateNumber || undefined,
-      representative: form.representative,
+      name: form.representative || undefined,
       businessType: form.businessType || undefined,
       businessItem: form.businessItem || undefined,
       address: form.address || undefined,

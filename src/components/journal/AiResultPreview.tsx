@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { formatAmount } from "@/lib/format";
 import { Check, RotateCcw, Lightbulb } from "lucide-react";
+import { useUserId } from "@/hooks/useUserId";
 
 interface AiEntry {
   accountCode: string;
@@ -41,8 +42,9 @@ export function AiResultPreview({
   inputDescription,
   onReset,
 }: AiResultPreviewProps) {
-  const accounts = useQuery(api.accounts.list, { activeOnly: true });
-  const partners = useQuery(api.partners.list, { activeOnly: true });
+  const userId = useUserId();
+  const accounts = useQuery(api.accounts.list, userId ? { userId, activeOnly: true } : "skip");
+  const partners = useQuery(api.partners.list, userId ? { userId, activeOnly: true } : "skip");
   const createJournal = useMutation(api.journals.create);
   const createEntries = useMutation(api.journalEntries.createBatch);
   const saveFn = useMutation(api.aiJournalExamples.saveExample);
@@ -55,12 +57,14 @@ export function AiResultPreview({
   const balanced = totalDebit === totalCredit;
 
   const handleSave = async () => {
+    if (!userId) return;
     if (!accounts) return;
     setSaving(true);
 
     try {
       // 전표 생성
       const journalId = await createJournal({
+        userId,
         journalDate: date,
         journalType: result.journalType,
         description: inputDescription,
@@ -90,6 +94,7 @@ export function AiResultPreview({
 
       // AI 학습 데이터 저장
       await saveFn({
+        userId,
         inputDescription,
         inputType,
         resultEntries: result.entries.map((e) => ({

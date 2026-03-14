@@ -35,23 +35,32 @@ const SYSTEM_PROMPT = `너는 한국 기업회계기준(K-GAAP)에 따른 복식
 
 export const generateJournal = action({
   args: {
+    userId: v.id("users"),
     type: v.string(),
     amount: v.number(),
     description: v.string(),
   },
   handler: async (ctx, args) => {
-    const accounts = await ctx.runQuery(api.accounts.list, { activeOnly: true });
+    const accounts = await ctx.runQuery(api.accounts.list, {
+      userId: args.userId,
+      activeOnly: true,
+    });
     const accountList = accounts
       .map((a: { code: string; name: string; category: string; subCategory: string }) =>
         `${a.code} ${a.name} (${a.category}/${a.subCategory})`)
       .join("\n");
 
-    const partners = await ctx.runQuery(api.partners.list, { activeOnly: true });
+    const partners = await ctx.runQuery(api.partners.list, {
+      userId: args.userId,
+      activeOnly: true,
+    });
     const partnerList = partners
       .map((p: { name: string; businessNumber: string }) => `${p.name} (${p.businessNumber})`)
       .join("\n");
 
-    const examples = await ctx.runQuery(api.aiJournalExamples.getExamples, {});
+    const examples = await ctx.runQuery(api.aiJournalExamples.getExamples, {
+      userId: args.userId,
+    });
     const exampleText = examples
       .slice(0, 20)
       .map(

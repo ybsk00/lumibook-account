@@ -15,6 +15,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUserId } from "@/hooks/useUserId";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 interface AccountComboboxProps {
@@ -25,7 +26,8 @@ interface AccountComboboxProps {
 const CATEGORY_ORDER = ["자산", "부채", "자본", "수익", "비용"];
 
 export function AccountCombobox({ value, onChange }: AccountComboboxProps) {
-  const accounts = useQuery(api.accounts.list, { activeOnly: true });
+  const userId = useUserId();
+  const accounts = useQuery(api.accounts.list, userId ? { userId, activeOnly: true } : "skip");
   const [open, setOpen] = useState(false);
 
   const selected = accounts?.find((a) => a._id === value);

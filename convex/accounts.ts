@@ -2,40 +2,45 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const list = query({
-  args: { activeOnly: v.optional(v.boolean()) },
+  args: { userId: v.id("users"), activeOnly: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     if (args.activeOnly) {
-      return await ctx.db
-        .query("accounts")
-        .withIndex("by_active", (q) => q.eq("isActive", true))
-        .collect();
+      return accounts.filter((a) => a.isActive);
     }
-    return await ctx.db.query("accounts").collect();
+    return accounts;
   },
 });
 
 export const getByCode = query({
-  args: { code: v.string() },
+  args: { userId: v.id("users"), code: v.string() },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("accounts")
-      .withIndex("by_code", (q) => q.eq("code", args.code))
+      .withIndex("by_user_code", (q) =>
+        q.eq("userId", args.userId).eq("code", args.code)
+      )
       .first();
   },
 });
 
 export const listByCategory = query({
-  args: { category: v.string() },
+  args: { userId: v.id("users"), category: v.string() },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const accounts = await ctx.db
       .query("accounts")
-      .withIndex("by_category", (q) => q.eq("category", args.category))
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
+    return accounts.filter((a) => a.category === args.category);
   },
 });
 
 export const create = mutation({
   args: {
+    userId: v.id("users"),
     code: v.string(),
     name: v.string(),
     category: v.string(),
@@ -49,7 +54,9 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("accounts")
-      .withIndex("by_code", (q) => q.eq("code", args.code))
+      .withIndex("by_user_code", (q) =>
+        q.eq("userId", args.userId).eq("code", args.code)
+      )
       .first();
     if (existing) throw new Error(`계정코드 ${args.code}가 이미 존재합니다.`);
 

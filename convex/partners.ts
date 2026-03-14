@@ -2,13 +2,16 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const list = query({
-  args: { activeOnly: v.optional(v.boolean()) },
+  args: { userId: v.id("users"), activeOnly: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
+    const partners = await ctx.db
+      .query("partners")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     if (args.activeOnly) {
-      const all = await ctx.db.query("partners").collect();
-      return all.filter((p) => p.isActive);
+      return partners.filter((p) => p.isActive);
     }
-    return await ctx.db.query("partners").collect();
+    return partners;
   },
 });
 
@@ -21,6 +24,7 @@ export const get = query({
 
 export const create = mutation({
   args: {
+    userId: v.id("users"),
     businessNumber: v.string(),
     name: v.string(),
     representative: v.optional(v.string()),

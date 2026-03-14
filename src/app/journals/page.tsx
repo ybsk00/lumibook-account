@@ -2,6 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { useUserId } from "@/hooks/useUserId";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,12 +28,14 @@ export default function JournalsPage() {
   const [endDate, setEndDate] = useState(`${year}-12-31`);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [search, setSearch] = useState("");
+  const userId = useUserId();
 
-  const journals = useQuery(api.journals.list, {
+  const journals = useQuery(api.journals.list, userId ? {
+    userId,
     startDate,
     endDate,
     status: statusFilter || undefined,
-  });
+  } : "skip");
 
   const filtered = (journals ?? []).filter(
     (j) =>

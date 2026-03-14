@@ -3,15 +3,26 @@ import { v } from "convex/values";
 
 // 분류에 필요한 모든 컨텍스트 한번에 로드
 export const getClassificationContext = query({
-  args: {},
-  handler: async (ctx) => {
-    const accounts = await ctx.db.query("accounts").collect();
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     const activeAccounts = accounts.filter((a) => a.isActive);
 
-    const partners = await ctx.db.query("partners").collect();
+    const partners = await ctx.db
+      .query("partners")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     const activePartners = partners.filter((p) => p.isActive);
 
-    const examples = await ctx.db.query("aiJournalExamples").collect();
+    const examples = await ctx.db
+      .query("aiJournalExamples")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     const recentExamples = examples
       .filter((e) => e.wasApproved)
       .slice(-50);
@@ -43,6 +54,7 @@ export const getClassificationContext = query({
 // 일괄 전표 생성
 export const batchCreateJournals = mutation({
   args: {
+    userId: v.id("users"),
     items: v.array(
       v.object({
         journalDate: v.string(),
@@ -65,8 +77,14 @@ export const batchCreateJournals = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const accounts = await ctx.db.query("accounts").collect();
-    const partners = await ctx.db.query("partners").collect();
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    const partners = await ctx.db
+      .query("partners")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
 
     const accountByCode = new Map(accounts.map((a) => [a.code, a]));
     const partnerByName = new Map(partners.map((p) => [p.name, p]));
@@ -88,7 +106,9 @@ export const batchCreateJournals = mutation({
       if (!dateCountCache.has(item.journalDate)) {
         const existing = await ctx.db
           .query("journals")
-          .withIndex("by_date", (q) => q.eq("journalDate", item.journalDate))
+          .withIndex("by_user_date", (q) =>
+            q.eq("userId", args.userId).eq("journalDate", item.journalDate)
+          )
           .collect();
         dateCountCache.set(item.journalDate, existing.length);
       }
@@ -104,6 +124,7 @@ export const batchCreateJournals = mutation({
 
       // 전표 생성
       const journalId = await ctx.db.insert("journals", {
+        userId: args.userId,
         journalNumber,
         journalDate: item.journalDate,
         journalType: item.journalType,
@@ -142,6 +163,7 @@ export const batchCreateJournals = mutation({
 
       // AI 학습 데이터 저장
       await ctx.db.insert("aiJournalExamples", {
+        userId: args.userId,
         inputDescription: item.inputDescription,
         inputType: item.inputType,
         resultEntries: item.entries.map((e) => ({

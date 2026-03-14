@@ -2,8 +2,25 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  // ─── 사용자 (1 ID = 1 법인) ───
+  users: defineTable({
+    email: v.string(),
+    passwordHash: v.string(),
+    name: v.string(),              // 대표자명
+    companyName: v.string(),       // 회사명
+    businessNumber: v.string(),    // 사업자등록번호
+    corporateNumber: v.optional(v.string()),
+    businessType: v.optional(v.string()),
+    businessItem: v.optional(v.string()),
+    address: v.optional(v.string()),
+    fiscalYearStart: v.number(),   // 1 (1월)
+    currentFiscalYear: v.number(), // 2025
+  })
+    .index("by_email", ["email"]),
+
   // ─── 계정과목 ───
   accounts: defineTable({
+    userId: v.id("users"),
     code: v.string(),
     name: v.string(),
     category: v.string(),
@@ -15,12 +32,16 @@ export default defineSchema({
     description: v.optional(v.string()),
     sortOrder: v.number(),
   })
+    .index("by_user", ["userId"])
+    .index("by_user_code", ["userId", "code"])
+    .index("by_user_active", ["userId", "isActive"])
     .index("by_code", ["code"])
     .index("by_category", ["category"])
     .index("by_active", ["isActive"]),
 
   // ─── 거래처 ───
   partners: defineTable({
+    userId: v.id("users"),
     businessNumber: v.string(),
     name: v.string(),
     representative: v.optional(v.string()),
@@ -32,11 +53,13 @@ export default defineSchema({
     partnerType: v.string(),
     isActive: v.boolean(),
   })
+    .index("by_user", ["userId"])
     .index("by_name", ["name"])
     .index("by_business_number", ["businessNumber"]),
 
   // ─── 전표 ───
   journals: defineTable({
+    userId: v.id("users"),
     journalNumber: v.string(),
     journalDate: v.string(),
     journalType: v.string(),
@@ -53,6 +76,9 @@ export default defineSchema({
       })
     ),
   })
+    .index("by_user", ["userId"])
+    .index("by_user_date", ["userId", "journalDate"])
+    .index("by_user_fiscal", ["userId", "fiscalYear"])
     .index("by_date", ["journalDate"])
     .index("by_fiscal", ["fiscalYear", "fiscalMonth"])
     .index("by_status", ["status"])
@@ -75,6 +101,7 @@ export default defineSchema({
 
   // ─── 세금계산서 ───
   taxInvoices: defineTable({
+    userId: v.id("users"),
     invoiceType: v.string(),
     invoiceNumber: v.optional(v.string()),
     invoiceDate: v.string(),
@@ -87,12 +114,14 @@ export default defineSchema({
     isElectronic: v.boolean(),
     journalId: v.optional(v.id("journals")),
   })
+    .index("by_user", ["userId"])
     .index("by_date", ["invoiceDate"])
     .index("by_type", ["invoiceType"])
     .index("by_partner", ["partnerId"]),
 
   // ─── 부가세 신고기간 ───
   vatPeriods: defineTable({
+    userId: v.id("users"),
     periodType: v.string(),
     startDate: v.string(),
     endDate: v.string(),
@@ -105,33 +134,26 @@ export default defineSchema({
     outputTax: v.number(),
     inputTax: v.number(),
     taxPayable: v.number(),
-  }).index("by_fiscal_year", ["fiscalYear"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_fiscal_year", ["fiscalYear"]),
 
   // ─── 기초잔액 ───
   openingBalances: defineTable({
+    userId: v.id("users"),
     fiscalYear: v.number(),
     accountId: v.id("accounts"),
     debitBalance: v.number(),
     creditBalance: v.number(),
   })
+    .index("by_user", ["userId"])
+    .index("by_user_fiscal", ["userId", "fiscalYear"])
     .index("by_fiscal_year", ["fiscalYear"])
     .index("by_account", ["accountId"]),
 
-  // ─── 회사 설정 ───
-  companySettings: defineTable({
-    companyName: v.string(),
-    businessNumber: v.string(),
-    corporateNumber: v.optional(v.string()),
-    representative: v.string(),
-    businessType: v.optional(v.string()),
-    businessItem: v.optional(v.string()),
-    address: v.optional(v.string()),
-    fiscalYearStart: v.number(),
-    currentFiscalYear: v.number(),
-  }),
-
   // ─── AI 분개 학습 데이터 ───
   aiJournalExamples: defineTable({
+    userId: v.id("users"),
     inputDescription: v.string(),
     inputType: v.string(),
     resultEntries: v.array(
@@ -145,5 +167,7 @@ export default defineSchema({
     ),
     wasApproved: v.boolean(),
     approvedAt: v.optional(v.string()),
-  }).index("by_description", ["inputDescription"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_description", ["inputDescription"]),
 });

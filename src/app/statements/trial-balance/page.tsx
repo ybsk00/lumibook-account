@@ -2,6 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
+import { useUserId } from "@/hooks/useUserId";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -9,17 +10,19 @@ import {
 import { formatAmount } from "@/lib/format";
 
 export default function TrialBalancePage() {
+  const userId = useUserId();
   const year = new Date().getFullYear();
-  const data = useQuery(api.statements.getTrialBalance, {
+  const data = useQuery(api.statements.getTrialBalance, userId ? {
+    userId,
     fiscalYear: year,
     endDate: `${year}-12-31`,
-  });
-  const settings = useQuery(api.settings.get);
+  } : "skip");
+  const user = useQuery(api.auth.getUser, userId ? { userId } : "skip");
 
   if (!data) return <div className="p-8 text-center text-muted-foreground">로딩 중...</div>;
 
   const balanced = data.totalDebitBalance === data.totalCreditBalance;
-  const companyName = settings?.companyName ?? "주식회사 루미브리즈";
+  const companyName = user?.companyName ?? "주식회사 루미브리즈";
 
   return (
     <div className="space-y-4 max-w-3xl">

@@ -9,9 +9,11 @@ import {
 import { DateRangePicker } from "@/components/common/DateRangePicker";
 import { AccountCombobox } from "@/components/common/AccountCombobox";
 import { formatAmount, formatDate } from "@/lib/format";
+import { useUserId } from "@/hooks/useUserId";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 export default function AccountLedgerPage() {
+  const userId = useUserId();
   const year = new Date().getFullYear();
   const [accountId, setAccountId] = useState<Id<"accounts"> | null>(null);
   const [startDate, setStartDate] = useState(`${year}-01-01`);
@@ -19,7 +21,7 @@ export default function AccountLedgerPage() {
 
   const data = useQuery(
     api.ledger.getAccountLedger,
-    accountId ? { accountId, startDate, endDate, fiscalYear: year } : "skip"
+    userId && accountId ? { userId, accountId, startDate, endDate, fiscalYear: year } : "skip"
   );
 
   return (

@@ -4,22 +4,31 @@ import { v } from "convex/values";
 // 총계정원장: 모든 계정의 기초/차변/대변/기말
 export const getGeneralLedger = query({
   args: {
+    userId: v.id("users"),
     fiscalYear: v.number(),
     startDate: v.string(),
     endDate: v.string(),
   },
   handler: async (ctx, args) => {
-    const accounts = await ctx.db.query("accounts").collect();
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     const activeAccounts = accounts.filter((a) => a.isActive);
 
     // 기초잔액
     const openingBalances = await ctx.db
       .query("openingBalances")
-      .withIndex("by_fiscal_year", (q) => q.eq("fiscalYear", args.fiscalYear))
+      .withIndex("by_user_fiscal", (q) =>
+        q.eq("userId", args.userId).eq("fiscalYear", args.fiscalYear)
+      )
       .collect();
 
     // 기간 내 확정 전표
-    const journals = await ctx.db.query("journals").collect();
+    const journals = await ctx.db
+      .query("journals")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     const confirmedJournals = journals.filter(
       (j) =>
         j.status === "confirmed" &&
@@ -74,6 +83,7 @@ export const getGeneralLedger = query({
 // 계정별원장: 특정 계정의 건별 거래내역
 export const getAccountLedger = query({
   args: {
+    userId: v.id("users"),
     accountId: v.id("accounts"),
     startDate: v.string(),
     endDate: v.string(),
@@ -86,7 +96,9 @@ export const getAccountLedger = query({
     // 기초잔액
     const obs = await ctx.db
       .query("openingBalances")
-      .withIndex("by_fiscal_year", (q) => q.eq("fiscalYear", args.fiscalYear))
+      .withIndex("by_user_fiscal", (q) =>
+        q.eq("userId", args.userId).eq("fiscalYear", args.fiscalYear)
+      )
       .collect();
     const ob = obs.find((o) => o.accountId === args.accountId);
     const opening =
@@ -95,7 +107,10 @@ export const getAccountLedger = query({
         : (ob?.creditBalance ?? 0) - (ob?.debitBalance ?? 0);
 
     // 기간 내 확정 전표
-    const journals = await ctx.db.query("journals").collect();
+    const journals = await ctx.db
+      .query("journals")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     const confirmedMap = new Map(
       journals
         .filter(
@@ -149,6 +164,7 @@ export const getAccountLedger = query({
 // 거래처별원장
 export const getPartnerLedger = query({
   args: {
+    userId: v.id("users"),
     partnerId: v.id("partners"),
     startDate: v.string(),
     endDate: v.string(),
@@ -157,7 +173,10 @@ export const getPartnerLedger = query({
     const partner = await ctx.db.get(args.partnerId);
     if (!partner) return { partner: null, entries: [] };
 
-    const journals = await ctx.db.query("journals").collect();
+    const journals = await ctx.db
+      .query("journals")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     const confirmedMap = new Map(
       journals
         .filter(
@@ -174,7 +193,10 @@ export const getPartnerLedger = query({
       .withIndex("by_partner", (q) => q.eq("partnerId", args.partnerId))
       .collect();
 
-    const accounts = await ctx.db.query("accounts").collect();
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
     const accountMap = new Map(accounts.map((a) => [a._id, a]));
 
     const entries = allEntries
