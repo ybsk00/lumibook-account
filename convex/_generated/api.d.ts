@@ -11,6 +11,8 @@
 import type * as accounts from "../accounts.js";
 import type * as aiJournal from "../aiJournal.js";
 import type * as aiJournalExamples from "../aiJournalExamples.js";
+import type * as bankUpload from "../bankUpload.js";
+import type * as bankUploadAi from "../bankUploadAi.js";
 import type * as hometax from "../hometax.js";
 import type * as journalEntries from "../journalEntries.js";
 import type * as journals from "../journals.js";
@@ -33,6 +35,8 @@ declare const fullApi: ApiFromModules<{
   accounts: typeof accounts;
   aiJournal: typeof aiJournal;
   aiJournalExamples: typeof aiJournalExamples;
+  bankUpload: typeof bankUpload;
+  bankUploadAi: typeof bankUploadAi;
   hometax: typeof hometax;
   journalEntries: typeof journalEntries;
   journals: typeof journals;

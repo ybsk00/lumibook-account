@@ -19,6 +19,7 @@ import {
   Building2,
   ClipboardList,
   Calculator,
+  Upload,
 } from "lucide-react";
 
 const menuGroups = [
@@ -26,6 +27,7 @@ const menuGroups = [
     label: "전표관리",
     items: [
       { href: "/journals/new", label: "전표 입력", icon: PenLine },
+      { href: "/journals/upload", label: "통장 업로드", icon: Upload },
       { href: "/journals", label: "전표 목록", icon: List },
     ],
   },
