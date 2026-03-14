@@ -22,6 +22,7 @@ import type * as partners from "../partners.js";
 import type * as seed from "../seed.js";
 import type * as settings from "../settings.js";
 import type * as statements from "../statements.js";
+import type * as taxInvoiceUpload from "../taxInvoiceUpload.js";
 import type * as taxInvoices from "../taxInvoices.js";
 import type * as vatPeriods from "../vatPeriods.js";
 
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   seed: typeof seed;
   settings: typeof settings;
   statements: typeof statements;
+  taxInvoiceUpload: typeof taxInvoiceUpload;
   taxInvoices: typeof taxInvoices;
   vatPeriods: typeof vatPeriods;
 }>;

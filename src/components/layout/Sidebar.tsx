@@ -51,6 +51,7 @@ const menuGroups = [
     label: "부가세",
     items: [
       { href: "/vat/invoices", label: "세금계산서", icon: Receipt },
+      { href: "/vat/invoices/upload", label: "계산서 업로드", icon: Upload },
       { href: "/vat", label: "부가세 신고", icon: Calculator },
     ],
   },
