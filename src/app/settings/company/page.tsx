@@ -28,6 +28,7 @@ export default function CompanySettingsPage() {
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -48,21 +49,28 @@ export default function CompanySettingsPage() {
   const handleSave = async () => {
     if (!userId) return;
     setSaving(true);
-    await updateUser({
-      userId,
-      companyName: form.companyName,
-      businessNumber: form.businessNumber,
-      corporateNumber: form.corporateNumber || undefined,
-      name: form.representative || undefined,
-      businessType: form.businessType || undefined,
-      businessItem: form.businessItem || undefined,
-      address: form.address || undefined,
-      fiscalYearStart: form.fiscalYearStart,
-      currentFiscalYear: form.currentFiscalYear,
-    });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setError(null);
+
+    try {
+      await updateUser({
+        userId,
+        companyName: form.companyName,
+        businessNumber: form.businessNumber,
+        corporateNumber: form.corporateNumber || undefined,
+        name: form.representative || undefined,
+        businessType: form.businessType || undefined,
+        businessItem: form.businessItem || undefined,
+        address: form.address || undefined,
+        fiscalYearStart: form.fiscalYearStart,
+        currentFiscalYear: form.currentFiscalYear,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "저장 중 오류가 발생했습니다.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -184,6 +192,12 @@ export default function CompanySettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {error && (
+        <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <Button onClick={handleSave} disabled={saving}>
