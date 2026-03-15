@@ -187,13 +187,17 @@ export function parseBankExcel(file: File): Promise<BankTransaction[]> {
           const dateStr = parseDate(row[colMap.date]);
           if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
 
-          const desc = String(row[colMap.description] ?? "").trim();
-          if (!desc) continue;
-
           const deposit = parseAmount(colMap.deposit !== undefined ? row[colMap.deposit] : 0);
           const withdrawal = parseAmount(colMap.withdrawal !== undefined ? row[colMap.withdrawal] : 0);
 
           if (deposit === 0 && withdrawal === 0) continue;
+
+          // 적요가 없는 경우 (이자 입금 등) 기본값 부여
+          let desc = String(row[colMap.description] ?? "").trim();
+          if (!desc) {
+            const counterpart = colMap.counterpart !== undefined ? String(row[colMap.counterpart] ?? "").trim() : "";
+            desc = counterpart || (deposit > 0 ? "이자입금" : "기타출금");
+          }
 
           counter++;
           transactions.push({
