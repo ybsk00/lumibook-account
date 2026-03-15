@@ -11,21 +11,29 @@ import {
 import { DateRangePicker } from "@/components/common/DateRangePicker";
 import { formatAmount } from "@/lib/format";
 import { useUserId } from "@/hooks/useUserId";
+import { useCurrentFiscalYear } from "@/hooks/useCurrentFiscalYear";
 import Link from "next/link";
+import { useEffect } from "react";
+import { Pencil } from "lucide-react";
 
 const CATEGORIES = ["전체", "자산", "부채", "자본", "수익", "비용"];
 
 export default function GeneralLedgerPage() {
   const userId = useUserId();
-  const year = new Date().getFullYear();
-  const [startDate, setStartDate] = useState(`${year}-01-01`);
-  const [endDate, setEndDate] = useState(`${year}-12-31`);
+  const { fiscalYear, startDate: fyStart, endDate: fyEnd } = useCurrentFiscalYear();
+  const [startDate, setStartDate] = useState(fyStart);
+  const [endDate, setEndDate] = useState(fyEnd);
   const [filter, setFilter] = useState("전체");
   const [showZero, setShowZero] = useState(false);
 
+  useEffect(() => {
+    setStartDate(fyStart);
+    setEndDate(fyEnd);
+  }, [fyStart, fyEnd]);
+
   const data = useQuery(api.ledger.getGeneralLedger, userId ? {
     userId,
-    fiscalYear: year,
+    fiscalYear,
     startDate,
     endDate,
   } : "skip");

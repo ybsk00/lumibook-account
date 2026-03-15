@@ -3,23 +3,25 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useUserId } from "@/hooks/useUserId";
+import { useCurrentFiscalYear } from "@/hooks/useCurrentFiscalYear";
 import { Badge } from "@/components/ui/badge";
 import { formatAmount } from "@/lib/format";
 
 export default function BalanceSheetPage() {
   const userId = useUserId();
-  const year = new Date().getFullYear();
+  const { fiscalYear, endDate: fyEnd, period: fyPeriod } = useCurrentFiscalYear();
   const data = useQuery(api.statements.getBalanceSheet, userId ? {
     userId,
-    fiscalYear: year,
-    endDate: `${year}-12-31`,
+    fiscalYear,
+    endDate: fyEnd,
   } : "skip");
   const user = useQuery(api.auth.getUser, userId ? { userId } : "skip");
 
   if (!data) return <div className="p-8 text-center text-muted-foreground">로딩 중...</div>;
 
   const companyName = user?.companyName ?? "주식회사 루미브리즈";
-  const period = `제 ${year - 2022}기 ${year}년 12월 31일 현재`;
+  const endParts = fyEnd.split("-");
+  const period = `제 ${fyPeriod}기 ${endParts[0]}년 ${endParts[1]}월 ${endParts[2]}일 현재`;
 
   return (
     <div className="space-y-4 max-w-5xl">

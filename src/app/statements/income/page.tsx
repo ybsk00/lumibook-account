@@ -3,6 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useUserId } from "@/hooks/useUserId";
+import { useCurrentFiscalYear } from "@/hooks/useCurrentFiscalYear";
 import { formatAmount } from "@/lib/format";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -10,12 +11,12 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 
 export default function IncomeStatementPage() {
   const userId = useUserId();
-  const year = new Date().getFullYear();
+  const { fiscalYear, startDate: fyStart, endDate: fyEnd, period: fyPeriod } = useCurrentFiscalYear();
   const data = useQuery(api.statements.getIncomeStatement, userId ? {
     userId,
-    fiscalYear: year,
-    startDate: `${year}-01-01`,
-    endDate: `${year}-12-31`,
+    fiscalYear,
+    startDate: fyStart,
+    endDate: fyEnd,
   } : "skip");
   const user = useQuery(api.auth.getUser, userId ? { userId } : "skip");
 
@@ -24,7 +25,9 @@ export default function IncomeStatementPage() {
   if (!data) return <div className="p-8 text-center text-muted-foreground">로딩 중...</div>;
 
   const companyName = user?.companyName ?? "주식회사 루미브리즈";
-  const period = `제 ${year - 2022}기 ${year}년 01월 01일 ~ ${year}년 12월 31일`;
+  const startParts = fyStart.split("-");
+  const endParts = fyEnd.split("-");
+  const period = `제 ${fyPeriod}기 ${startParts[0]}년 ${startParts[1]}월 ${startParts[2].replace(/^0/, "")}일 ~ ${endParts[0]}년 ${endParts[1]}월 ${endParts[2]}일`;
 
   return (
     <div className="space-y-4 max-w-2xl">

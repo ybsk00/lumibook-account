@@ -3,17 +3,23 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useUserId } from "@/hooks/useUserId";
+import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatBusinessNumber } from "@/lib/format";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 export default function CompanySettingsPage() {
+  const { data: session, status } = useSession();
   const userId = useUserId();
   const user = useQuery(api.auth.getUser, userId ? { userId } : "skip");
   const updateUser = useMutation(api.auth.updateUser);
+
+  // 세션에서 userId를 못 읽을 때, user._id를 직접 사용 (폴백)
+  const effectiveUserId = userId ?? (user?._id as Id<"users"> | undefined) ?? null;
 
   const [form, setForm] = useState({
     companyName: "",
@@ -47,7 +53,8 @@ export default function CompanySettingsPage() {
   }, [user]);
 
   const handleSave = async () => {
-    if (!userId) {
+    const saveId = effectiveUserId;
+    if (!saveId) {
       setError("로그인 정보를 찾을 수 없습니다. 다시 로그인해주세요.");
       return;
     }
@@ -56,7 +63,7 @@ export default function CompanySettingsPage() {
 
     try {
       await updateUser({
-        userId,
+        userId: saveId,
         companyName: form.companyName,
         businessNumber: form.businessNumber,
         corporateNumber: form.corporateNumber || undefined,
@@ -76,9 +83,25 @@ export default function CompanySettingsPage() {
     }
   };
 
+  // 세션 디버그 (개발 중만 표시)
+  const sessionDebug = status === "loading"
+    ? "세션 로딩 중..."
+    : status === "unauthenticated"
+      ? "로그인되지 않음"
+      : userId
+        ? null // 정상
+        : `세션 있음 (userId 누락) — session.user: ${JSON.stringify(session?.user)}`;
+
   return (
     <div className="max-w-2xl space-y-6">
       <h1 className="text-xl font-bold">회사정보 설정</h1>
+
+      {/* 세션 디버그 */}
+      {sessionDebug && (
+        <div className="p-3 bg-yellow-50 text-yellow-800 rounded-lg text-xs font-mono">
+          {sessionDebug}
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -203,12 +226,12 @@ export default function CompanySettingsPage() {
       )}
 
       <div className="flex items-center gap-3">
-        <Button onClick={handleSave} disabled={saving || !userId}>
+        <Button onClick={handleSave} disabled={saving || !effectiveUserId}>
           {saving ? "저장 중..." : "저장"}
         </Button>
         {saved && <span className="text-sm text-green-600">저장되었습니다.</span>}
-        {!userId && (
-          <span className="text-sm text-orange-600">로그인 정보를 불러오는 중...</span>
+        {!effectiveUserId && status !== "loading" && (
+          <span className="text-sm text-orange-600">로그인 정보를 확인할 수 없습니다.</span>
         )}
       </div>
     </div>

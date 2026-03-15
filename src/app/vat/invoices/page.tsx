@@ -83,7 +83,7 @@ export default function TaxInvoicesPage() {
           <TableRow key={inv._id}>
             <TableCell>{formatDate(inv.invoiceDate)}</TableCell>
             <TableCell className="font-mono text-sm">{inv.invoiceNumber ?? "-"}</TableCell>
-            <TableCell>{inv.partnerId}</TableCell>
+            <TableCell>{inv.partnerName ?? inv.partnerId}</TableCell>
             <TableCell className="text-right font-mono">{formatAmount(inv.supplyAmount)}</TableCell>
             <TableCell className="text-right font-mono">{formatAmount(inv.taxAmount)}</TableCell>
             <TableCell className="text-right font-mono font-medium">{formatAmount(inv.totalAmount)}</TableCell>

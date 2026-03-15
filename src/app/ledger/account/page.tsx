@@ -3,25 +3,35 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { DateRangePicker } from "@/components/common/DateRangePicker";
 import { AccountCombobox } from "@/components/common/AccountCombobox";
+import { Pencil } from "lucide-react";
 import { formatAmount, formatDate } from "@/lib/format";
 import { useUserId } from "@/hooks/useUserId";
+import { useCurrentFiscalYear } from "@/hooks/useCurrentFiscalYear";
+import { useEffect } from "react";
+import Link from "next/link";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 export default function AccountLedgerPage() {
   const userId = useUserId();
-  const year = new Date().getFullYear();
+  const { fiscalYear, startDate: fyStart, endDate: fyEnd } = useCurrentFiscalYear();
   const [accountId, setAccountId] = useState<Id<"accounts"> | null>(null);
-  const [startDate, setStartDate] = useState(`${year}-01-01`);
-  const [endDate, setEndDate] = useState(`${year}-12-31`);
+  const [startDate, setStartDate] = useState(fyStart);
+  const [endDate, setEndDate] = useState(fyEnd);
+
+  useEffect(() => {
+    setStartDate(fyStart);
+    setEndDate(fyEnd);
+  }, [fyStart, fyEnd]);
 
   const data = useQuery(
     api.ledger.getAccountLedger,
-    userId && accountId ? { userId, accountId, startDate, endDate, fiscalYear: year } : "skip"
+    userId && accountId ? { userId, accountId, startDate, endDate, fiscalYear } : "skip"
   );
 
   return (
@@ -66,13 +76,18 @@ export default function AccountLedgerPage() {
                   <TableHead className="text-right text-blue-600">차변</TableHead>
                   <TableHead className="text-right text-red-600">대변</TableHead>
                   <TableHead className="text-right">잔액</TableHead>
+                  <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {data.entries.map((e) => (
                   <TableRow key={e.entryId}>
                     <TableCell>{formatDate(e.journalDate)}</TableCell>
-                    <TableCell className="font-mono text-sm">{e.journalNumber}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      <Link href={`/journals/${e.journalId}`} className="hover:underline text-primary">
+                        {e.journalNumber}
+                      </Link>
+                    </TableCell>
                     <TableCell>{e.journalDescription}</TableCell>
                     <TableCell className="text-right font-mono text-blue-600">
                       {e.debitAmount > 0 ? formatAmount(e.debitAmount) : ""}
@@ -82,6 +97,13 @@ export default function AccountLedgerPage() {
                     </TableCell>
                     <TableCell className="text-right font-mono font-medium">
                       {formatAmount(e.balance)}
+                    </TableCell>
+                    <TableCell>
+                      <Link href={`/journals/${e.journalId}`}>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      </Link>
                     </TableCell>
                   </TableRow>
                 ))}

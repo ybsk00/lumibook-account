@@ -3,7 +3,8 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useUserId } from "@/hooks/useUserId";
-import { useState } from "react";
+import { useCurrentFiscalYear } from "@/hooks/useCurrentFiscalYear";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +14,7 @@ import {
 import { DateRangePicker } from "@/components/common/DateRangePicker";
 import { formatAmount, formatDate } from "@/lib/format";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 
 const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   draft: { label: "임시", variant: "secondary" },
@@ -22,13 +23,18 @@ const STATUS_MAP: Record<string, { label: string; variant: "default" | "secondar
 };
 
 export default function JournalsPage() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const [startDate, setStartDate] = useState(`${year}-01-01`);
-  const [endDate, setEndDate] = useState(`${year}-12-31`);
+  const { startDate: fyStart, endDate: fyEnd } = useCurrentFiscalYear();
+  const [startDate, setStartDate] = useState(fyStart);
+  const [endDate, setEndDate] = useState(fyEnd);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [search, setSearch] = useState("");
   const userId = useUserId();
+
+  // 회계연도 로드 후 날짜 갱신
+  useEffect(() => {
+    setStartDate(fyStart);
+    setEndDate(fyEnd);
+  }, [fyStart, fyEnd]);
 
   const journals = useQuery(api.journals.list, userId ? {
     userId,
@@ -94,6 +100,7 @@ export default function JournalsPage() {
               <TableHead>적요</TableHead>
               <TableHead className="text-right">금액</TableHead>
               <TableHead>상태</TableHead>
+              <TableHead className="w-16"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -113,6 +120,13 @@ export default function JournalsPage() {
                   <TableCell>
                     <Badge variant={status.variant}>{status.label}</Badge>
                   </TableCell>
+                  <TableCell>
+                    <Link href={`/journals/${j._id}`}>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </Link>
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -121,6 +135,7 @@ export default function JournalsPage() {
                 <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                   {journals === undefined ? "로딩 중..." : "등록된 전표가 없습니다."}
                 </TableCell>
+                <TableCell />
               </TableRow>
             )}
           </TableBody>

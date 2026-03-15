@@ -22,7 +22,15 @@ export const list = query({
     if (args.endDate) {
       invoices = invoices.filter((i) => i.invoiceDate <= args.endDate!);
     }
-    return invoices.sort((a, b) => b.invoiceDate.localeCompare(a.invoiceDate));
+    const sorted = invoices.sort((a, b) => b.invoiceDate.localeCompare(a.invoiceDate));
+    // 거래처명 조인
+    const withPartner = await Promise.all(
+      sorted.map(async (inv) => {
+        const partner = await ctx.db.get(inv.partnerId);
+        return { ...inv, partnerName: partner?.name ?? "(삭제된 거래처)" };
+      })
+    );
+    return withPartner;
   },
 });
 

@@ -3,6 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useUserId } from "@/hooks/useUserId";
+import { useCurrentFiscalYear } from "@/hooks/useCurrentFiscalYear";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,11 +22,11 @@ import { Copy, Printer } from "lucide-react";
 
 export default function ExportPage() {
   const userId = useUserId();
-  const year = new Date().getFullYear();
+  const { fiscalYear: year, endDate: fyEnd, period: fyPeriod } = useCurrentFiscalYear();
   const balances = useQuery(api.hometax.getHometaxData, userId ? {
     userId,
     fiscalYear: year,
-    endDate: `${year}-12-31`,
+    endDate: fyEnd,
   } : "skip");
   const user = useQuery(api.auth.getUser, userId ? { userId } : "skip");
 
@@ -114,7 +115,7 @@ export default function ExportPage() {
 
       <div className="text-center text-sm">
         <div className="font-medium">{companyName}</div>
-        <div className="text-muted-foreground">제 {year - 2022}기 {year}년 (단위: 원)</div>
+        <div className="text-muted-foreground">제 {fyPeriod}기 {year}년 (단위: 원)</div>
       </div>
 
       <Tabs defaultValue="bs">

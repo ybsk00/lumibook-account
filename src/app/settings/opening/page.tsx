@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useUserId } from "@/hooks/useUserId";
+import { useCurrentFiscalYear } from "@/hooks/useCurrentFiscalYear";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,17 +33,18 @@ interface BalanceRow {
 
 export default function OpeningBalancePage() {
   const userId = useUserId();
+  const { fiscalYear: currentFY } = useCurrentFiscalYear();
   const accounts = useQuery(api.accounts.list, userId ? { userId, activeOnly: true } : "skip");
   const existingBalances = useQuery(
     api.openingBalances.getByFiscalYear,
-    userId ? { userId, fiscalYear: new Date().getFullYear() } : "skip"
+    userId ? { userId, fiscalYear: currentFY } : "skip"
   );
   const saveBalances = useMutation(api.openingBalances.saveBatch);
   const parseBalancePdf = useAction(api.openingBalanceAi.parseBalanceDocument);
 
   const [corpType, setCorpType] = useState<CorpType>(null);
   const [phase, setPhase] = useState<Phase>("select");
-  const [fiscalYear, setFiscalYear] = useState(new Date().getFullYear());
+  const [fiscalYear, setFiscalYear] = useState(currentFY);
   const [rows, setRows] = useState<BalanceRow[]>([]);
   const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);

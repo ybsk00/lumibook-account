@@ -3,6 +3,7 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useUserId } from "@/hooks/useUserId";
+import { useCurrentFiscalYear } from "@/hooks/useCurrentFiscalYear";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,7 @@ const DEFAULT_PERIODS = [
 
 export default function VatPage() {
   const userId = useUserId();
-  const year = new Date().getFullYear();
+  const { fiscalYear: year } = useCurrentFiscalYear();
   const periods = useQuery(api.vatPeriods.list, userId ? { userId, fiscalYear: year } : "skip");
   const createPeriod = useMutation(api.vatPeriods.create);
   const recalculate = useMutation(api.vatPeriods.recalculate);

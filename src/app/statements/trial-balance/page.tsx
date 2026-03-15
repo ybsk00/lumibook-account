@@ -3,6 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useUserId } from "@/hooks/useUserId";
+import { useCurrentFiscalYear } from "@/hooks/useCurrentFiscalYear";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -11,11 +12,11 @@ import { formatAmount } from "@/lib/format";
 
 export default function TrialBalancePage() {
   const userId = useUserId();
-  const year = new Date().getFullYear();
+  const { fiscalYear, endDate: fyEnd, period: fyPeriod } = useCurrentFiscalYear();
   const data = useQuery(api.statements.getTrialBalance, userId ? {
     userId,
-    fiscalYear: year,
-    endDate: `${year}-12-31`,
+    fiscalYear,
+    endDate: fyEnd,
   } : "skip");
   const user = useQuery(api.auth.getUser, userId ? { userId } : "skip");
 
@@ -35,7 +36,7 @@ export default function TrialBalancePage() {
 
       <div className="text-center text-sm text-muted-foreground">
         <div className="font-medium text-foreground">{companyName}</div>
-        <div>{year}년 12월 31일 현재 (단위: 원)</div>
+        <div>{fyEnd.split("-")[0]}년 {fyEnd.split("-")[1]}월 {fyEnd.split("-")[2]}일 현재 (단위: 원)</div>
       </div>
 
       <div className="border rounded-lg">
