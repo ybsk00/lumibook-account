@@ -47,7 +47,10 @@ export default function CompanySettingsPage() {
   }, [user]);
 
   const handleSave = async () => {
-    if (!userId) return;
+    if (!userId) {
+      setError("로그인 정보를 찾을 수 없습니다. 다시 로그인해주세요.");
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -200,10 +203,13 @@ export default function CompanySettingsPage() {
       )}
 
       <div className="flex items-center gap-3">
-        <Button onClick={handleSave} disabled={saving}>
+        <Button onClick={handleSave} disabled={saving || !userId}>
           {saving ? "저장 중..." : "저장"}
         </Button>
         {saved && <span className="text-sm text-green-600">저장되었습니다.</span>}
+        {!userId && (
+          <span className="text-sm text-orange-600">로그인 정보를 불러오는 중...</span>
+        )}
       </div>
     </div>
   );
