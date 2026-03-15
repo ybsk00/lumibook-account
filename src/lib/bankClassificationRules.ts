@@ -125,12 +125,15 @@ function classifyByKeyword(
   accounts: AccountInfo[],
 ): ClassificationResult | null {
   const desc = tx.description.toLowerCase();
+  const counterpart = (tx.counterpart || "").toLowerCase();
+  const searchText = `${desc} ${counterpart}`.trim();
   const isDeposit = tx.deposit > 0;
 
-  // 거래처명 매칭 먼저
+  // 거래처명 매칭 먼저 (적요 + 의뢰인/수취인 모두 검색)
   let matchedPartner: PartnerInfo | undefined;
   for (const p of partners) {
-    if (desc.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(desc)) {
+    const pName = p.name.toLowerCase();
+    if (searchText.includes(pName) || pName.includes(desc) || (counterpart && pName.includes(counterpart))) {
       matchedPartner = p;
       break;
     }
@@ -138,7 +141,7 @@ function classifyByKeyword(
 
   // 키워드 매칭
   for (const rule of KEYWORD_RULES) {
-    const matched = rule.keywords.some((kw) => desc.includes(kw.toLowerCase()));
+    const matched = rule.keywords.some((kw) => searchText.includes(kw.toLowerCase()));
     if (!matched) continue;
 
     let code = rule.accountCode;
@@ -169,7 +172,7 @@ function classifyByKeyword(
       vatSeparation: vatSep,
       supplyAmount,
       taxAmount,
-      reasoning: `키워드 "${rule.keywords.find((kw) => desc.includes(kw.toLowerCase()))}" 매칭 → ${account.name}`,
+      reasoning: `키워드 "${rule.keywords.find((kw) => searchText.includes(kw.toLowerCase()))}" 매칭 → ${account.name}`,
     };
   }
 

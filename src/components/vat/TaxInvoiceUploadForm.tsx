@@ -1,20 +1,17 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { AccountCombobox } from "@/components/common/AccountCombobox";
 import { parseTaxInvoiceExcel, type TaxInvoiceRow } from "@/lib/taxInvoiceExcelParser";
 import { formatAmount } from "@/lib/format";
-import { Upload, FileSpreadsheet, Loader2, Check, AlertCircle, X } from "lucide-react";
+import { Upload, FileSpreadsheet, Loader2, Check, AlertCircle, X, CheckCircle2 } from "lucide-react";
 import { useUserId } from "@/hooks/useUserId";
 
 type Phase = "upload" | "parsing" | "review" | "saving" | "done";
@@ -47,7 +44,7 @@ function guessExpenseAccount(
       return { code: rule.accountCode, name: rule.accountName };
     }
   }
-  return { code: "531", name: "외주용역비" }; // 기본값
+  return { code: "531", name: "외주용역비" };
 }
 
 interface ReviewRow {
@@ -57,10 +54,31 @@ interface ReviewRow {
   expenseAccountName: string;
 }
 
+interface UploadedFile {
+  file: File;
+  name: string;
+  type: "sales" | "purchase" | null;
+  period: string;
+  count: number;
+}
+
+// 파일에서 매출/매입과 기수를 자동감지
+async function detectFileInfo(file: File): Promise<{ type: "sales" | "purchase" | null; period: string; count: number }> {
+  try {
+    const invoices = await parseTaxInvoiceExcel(file);
+    const type = invoices.length > 0 ? invoices[0].invoiceType : null;
+    const periodLabel = invoices.length > 0 ? (invoices[0].periodLabel || "") : "";
+    return { type, period: periodLabel, count: invoices.length };
+  } catch {
+    return { type: null, period: "", count: 0 };
+  }
+}
+
 export function TaxInvoiceUploadForm() {
   const userId = useUserId();
   const [phase, setPhase] = useState<Phase>("upload");
   const [rows, setRows] = useState<ReviewRow[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     invoices: number;
@@ -68,22 +86,83 @@ export function TaxInvoiceUploadForm() {
     newPartners: number;
   } | null>(null);
   const [editingRow, setEditingRow] = useState<string | null>(null);
-  const [defaultType, setDefaultType] = useState<"sales" | "purchase">("sales");
+  const [filterType, setFilterType] = useState<"all" | "sales" | "purchase">("all");
+  const [filterPeriod, setFilterPeriod] = useState<string>("all");
 
   const batchCreate = useMutation(api.taxInvoiceUpload.batchCreateWithJournals);
 
-  const handleFileSelect = useCallback(async (file: File) => {
+  // 파일 추가
+  const handleFilesAdd = useCallback(async (newFiles: FileList | File[]) => {
+    setError(null);
+    const filesArray = Array.from(newFiles);
+    const excelFiles = filesArray.filter((f) =>
+      f.name.endsWith(".xlsx") || f.name.endsWith(".xls") || f.name.endsWith(".csv")
+    );
+
+    if (excelFiles.length === 0) {
+      setError("엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.");
+      return;
+    }
+
+    const newUploaded: UploadedFile[] = [];
+    for (const file of excelFiles) {
+      const info = await detectFileInfo(file);
+      newUploaded.push({
+        file,
+        name: file.name,
+        type: info.type,
+        period: info.period,
+        count: info.count,
+      });
+    }
+
+    setUploadedFiles((prev) => [...prev, ...newUploaded]);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.files.length > 0) handleFilesAdd(e.dataTransfer.files);
+  }, [handleFilesAdd]);
+
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleFilesAdd(e.target.files);
+      e.target.value = "";
+    }
+  }, [handleFilesAdd]);
+
+  const removeFile = (index: number) => {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // 전체 파싱 → 리뷰 진입
+  const handleParseAll = useCallback(async () => {
     setError(null);
     setPhase("parsing");
 
     try {
-      const invoices = await parseTaxInvoiceExcel(file, defaultType);
+      const allInvoices: TaxInvoiceRow[] = [];
+      let globalCounter = 0;
 
-      const reviewRows: ReviewRow[] = invoices.map((inv) => {
+      for (const uf of uploadedFiles) {
+        const invoices = await parseTaxInvoiceExcel(uf.file);
+        for (const inv of invoices) {
+          globalCounter++;
+          inv.id = `inv-${globalCounter}`;
+        }
+        allInvoices.push(...invoices);
+      }
+
+      if (allInvoices.length === 0) {
+        setError("업로드된 파일에서 유효한 데이터를 찾을 수 없습니다.");
+        setPhase("upload");
+        return;
+      }
+
+      const reviewRows: ReviewRow[] = allInvoices.map((inv) => {
         const expense = inv.invoiceType === "purchase"
           ? guessExpenseAccount(inv.partnerName, inv.description)
           : { code: "", name: "" };
-
         return {
           invoice: inv,
           selected: true,
@@ -98,22 +177,15 @@ export function TaxInvoiceUploadForm() {
       setError(err instanceof Error ? err.message : "파일 처리 중 오류가 발생했습니다.");
       setPhase("upload");
     }
-  }, [defaultType]);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) handleFileSelect(file);
-  }, [handleFileSelect]);
-
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFileSelect(file);
-  }, [handleFileSelect]);
+  }, [uploadedFiles]);
 
   const toggleAll = () => {
-    const allSelected = rows.every((r) => r.selected);
-    setRows(rows.map((r) => ({ ...r, selected: !allSelected })));
+    const filtered = getFilteredRows();
+    const allSelected = filtered.every((r) => r.selected);
+    const filteredIds = new Set(filtered.map((r) => r.invoice.id));
+    setRows(rows.map((r) =>
+      filteredIds.has(r.invoice.id) ? { ...r, selected: !allSelected } : r
+    ));
   };
 
   const toggleRow = (id: string) => {
@@ -181,53 +253,91 @@ export function TaxInvoiceUploadForm() {
   const handleReset = () => {
     setPhase("upload");
     setRows([]);
+    setUploadedFiles([]);
     setError(null);
     setResult(null);
+    setFilterType("all");
+    setFilterPeriod("all");
   };
 
+  // 필터링
+  const getFilteredRows = () => {
+    return rows.filter((r) => {
+      if (filterType !== "all" && r.invoice.invoiceType !== filterType) return false;
+      if (filterPeriod !== "all" && (r.invoice.periodLabel || "") !== filterPeriod) return false;
+      return true;
+    });
+  };
+
+  const filteredRows = getFilteredRows();
   const salesCount = rows.filter((r) => r.selected && r.invoice.invoiceType === "sales").length;
   const purchaseCount = rows.filter((r) => r.selected && r.invoice.invoiceType === "purchase").length;
   const totalSupply = rows.filter((r) => r.selected).reduce((s, r) => s + r.invoice.supplyAmount, 0);
   const totalTax = rows.filter((r) => r.selected).reduce((s, r) => s + r.invoice.taxAmount, 0);
 
-  // ─── Upload ───
+  // 기수 목록
+  const periodLabels = [...new Set(rows.map((r) => r.invoice.periodLabel || "").filter(Boolean))];
+
+  // ─── Upload Phase ───
   if (phase === "upload") {
+    const salesFiles = uploadedFiles.filter((f) => f.type === "sales");
+    const purchaseFiles = uploadedFiles.filter((f) => f.type === "purchase");
+
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-3 mb-2">
-          <span className="text-sm font-medium">기본 매출/매입 구분:</span>
-          <Select value={defaultType} onValueChange={(v) => setDefaultType((v ?? "sales") as "sales" | "purchase")}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="sales">매출</SelectItem>
-              <SelectItem value="purchase">매입</SelectItem>
-            </SelectContent>
-          </Select>
-          <span className="text-xs text-muted-foreground">
-            (엑셀에 구분 컬럼이 없을 때 사용)
-          </span>
-        </div>
+        {/* 업로드 상태 표시 */}
+        {uploadedFiles.length > 0 && (
+          <div className="border rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">업로드된 파일 ({uploadedFiles.length}장)</span>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>매출: {salesFiles.length}장</span>
+                <span>매입: {purchaseFiles.length}장</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {uploadedFiles.map((uf, idx) => (
+                <div key={idx} className="flex items-center justify-between bg-muted/50 rounded px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="h-4 w-4 text-primary" />
+                    <span className="text-sm">{uf.name}</span>
+                    <Badge variant={uf.type === "sales" ? "default" : "secondary"} className="text-xs">
+                      {uf.type === "sales" ? "매출" : uf.type === "purchase" ? "매입" : "미감지"}
+                    </Badge>
+                    {uf.period && (
+                      <Badge variant="outline" className="text-xs">{uf.period}</Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground">{uf.count}건</span>
+                  </div>
+                  <button onClick={() => removeFile(idx)} className="text-muted-foreground hover:text-red-500">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
+        {/* 드래그 앤 드롭 영역 */}
         <div
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
-          className="border-2 border-dashed rounded-lg p-12 text-center hover:border-primary hover:bg-accent/50 transition-colors cursor-pointer"
+          className="border-2 border-dashed rounded-lg p-10 text-center hover:border-primary hover:bg-accent/50 transition-colors cursor-pointer"
           onClick={() => document.getElementById("tax-invoice-file-input")?.click()}
         >
-          <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-lg font-medium mb-2">세금계산서 합계표 엑셀을 업로드하세요</p>
-          <p className="text-sm text-muted-foreground mb-4">
-            .xlsx, .xls 파일을 드래그하거나 클릭하여 선택
+          <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+          <p className="text-lg font-medium mb-1">세금계산서 합계표 엑셀 업로드</p>
+          <p className="text-sm text-muted-foreground mb-3">
+            .xlsx, .xls 파일을 드래그하거나 클릭 (여러 장 동시 선택 가능)
           </p>
           <p className="text-xs text-muted-foreground">
-            홈택스 &gt; 조회/발급 &gt; 전자세금계산서 목록조회 &gt; 엑셀 다운로드
+            1기 매출 / 1기 매입 / 2기 매출 / 2기 매입 — 총 4장 업로드 권장
           </p>
           <input
             id="tax-invoice-file-input"
             type="file"
             accept=".xlsx,.xls,.csv"
+            multiple
             onChange={handleInputChange}
             className="hidden"
           />
@@ -240,14 +350,23 @@ export function TaxInvoiceUploadForm() {
           </div>
         )}
 
+        {/* 파싱 시작 버튼 */}
+        {uploadedFiles.length > 0 && (
+          <Button onClick={handleParseAll} className="w-full" size="lg">
+            <FileSpreadsheet className="h-5 w-5 mr-2" />
+            {uploadedFiles.length}개 파일 파싱 시작 (총 {uploadedFiles.reduce((s, f) => s + f.count, 0)}건)
+          </Button>
+        )}
+
         <div className="bg-muted/50 rounded-lg p-4 text-sm space-y-2">
           <p className="font-medium">자동 처리 내용</p>
           <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+            <li>합계표에서 매출/매입, 기수(1기/2기) 자동 감지</li>
             <li>세금계산서 테이블에 자동 등록</li>
-            <li>매출 → 외상매출금(차) / 매출+부가세예수금(대) 자동 분개</li>
-            <li>매입 → 비용+부가세대급금(차) / 외상매입금(대) 자동 분개</li>
+            <li>매출: 외상매출금(차) / 매출+부가세예수금(대) 자동 분개</li>
+            <li>매입: 비용+부가세대급금(차) / 외상매입금(대) 자동 분개</li>
             <li>미등록 거래처는 자동 신규 등록</li>
-            <li>매입 비용 계정은 거래처/적요 기반 AI 추정 (수정 가능)</li>
+            <li>매입 비용 계정은 거래처명 기반 추정 (수정 가능)</li>
           </ul>
         </div>
       </div>
@@ -259,7 +378,7 @@ export function TaxInvoiceUploadForm() {
     return (
       <div className="flex flex-col items-center justify-center py-16 space-y-4">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="text-lg font-medium">엑셀 파싱 중...</p>
+        <p className="text-lg font-medium">{uploadedFiles.length}개 파일 파싱 중...</p>
       </div>
     );
   }
@@ -302,13 +421,16 @@ export function TaxInvoiceUploadForm() {
     );
   }
 
-  // ─── Review ───
+  // ─── Review Phase ───
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <FileSpreadsheet className="h-5 w-5 text-primary" />
           <span className="font-medium">{rows.length}건 세금계산서</span>
+          {uploadedFiles.length > 1 && (
+            <Badge variant="outline" className="text-xs">{uploadedFiles.length}개 파일</Badge>
+          )}
         </div>
         <Button variant="outline" size="sm" onClick={handleReset}>
           다시 업로드
@@ -322,17 +444,56 @@ export function TaxInvoiceUploadForm() {
         </div>
       )}
 
-      {/* 요약 바 */}
+      {/* 필터 + 요약 바 */}
       <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
-        <div className="flex items-center gap-4 text-sm">
-          <span>매출 <strong className="text-blue-600">{salesCount}</strong>건</span>
-          <span>매입 <strong className="text-red-600">{purchaseCount}</strong>건</span>
-          <span>공급가액 <strong>{formatAmount(totalSupply)}</strong></span>
+        <div className="flex items-center gap-3 text-sm">
+          {/* 타입 필터 */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setFilterType("all")}
+              className={`px-2 py-0.5 rounded text-xs ${filterType === "all" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            >
+              전체
+            </button>
+            <button
+              onClick={() => setFilterType("sales")}
+              className={`px-2 py-0.5 rounded text-xs ${filterType === "sales" ? "bg-blue-600 text-white" : "hover:bg-muted"}`}
+            >
+              매출 {salesCount}
+            </button>
+            <button
+              onClick={() => setFilterType("purchase")}
+              className={`px-2 py-0.5 rounded text-xs ${filterType === "purchase" ? "bg-red-600 text-white" : "hover:bg-muted"}`}
+            >
+              매입 {purchaseCount}
+            </button>
+          </div>
+          {/* 기수 필터 */}
+          {periodLabels.length > 1 && (
+            <div className="flex items-center gap-1 border-l pl-3">
+              <button
+                onClick={() => setFilterPeriod("all")}
+                className={`px-2 py-0.5 rounded text-xs ${filterPeriod === "all" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+              >
+                전체
+              </button>
+              {periodLabels.map((label) => (
+                <button
+                  key={label}
+                  onClick={() => setFilterPeriod(label)}
+                  className={`px-2 py-0.5 rounded text-xs ${filterPeriod === label ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          <span className="border-l pl-3">공급가액 <strong>{formatAmount(totalSupply)}</strong></span>
           <span>세액 <strong>{formatAmount(totalTax)}</strong></span>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={toggleAll}>
-            {rows.every((r) => r.selected) ? "전체 해제" : "전체 선택"}
+            {filteredRows.every((r) => r.selected) ? "전체 해제" : "전체 선택"}
           </Button>
           <Button size="sm" onClick={handleApprove} disabled={salesCount + purchaseCount === 0}>
             선택 {salesCount + purchaseCount}건 승인
@@ -348,12 +509,13 @@ export function TaxInvoiceUploadForm() {
               <TableHead className="w-10">
                 <input
                   type="checkbox"
-                  checked={rows.every((r) => r.selected)}
+                  checked={filteredRows.length > 0 && filteredRows.every((r) => r.selected)}
                   onChange={toggleAll}
                   className="rounded"
                 />
               </TableHead>
               <TableHead className="w-16">구분</TableHead>
+              {periodLabels.length > 0 && <TableHead className="w-14">기수</TableHead>}
               <TableHead>날짜</TableHead>
               <TableHead>거래처</TableHead>
               <TableHead>사업자번호</TableHead>
@@ -365,7 +527,7 @@ export function TaxInvoiceUploadForm() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row) => {
+            {filteredRows.map((row) => {
               const isSales = row.invoice.invoiceType === "sales";
               const isEditing = editingRow === row.invoice.id;
 
@@ -387,6 +549,11 @@ export function TaxInvoiceUploadForm() {
                       {isSales ? "매출" : "매입"}
                     </Badge>
                   </TableCell>
+                  {periodLabels.length > 0 && (
+                    <TableCell className="text-xs text-muted-foreground">
+                      {row.invoice.periodLabel || "-"}
+                    </TableCell>
+                  )}
                   <TableCell className="font-mono text-sm whitespace-nowrap">
                     {row.invoice.invoiceDate}
                   </TableCell>
