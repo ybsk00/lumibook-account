@@ -38,10 +38,20 @@ export const batchCreateWithJournals = mutation({
       partners.filter((p) => p.businessNumber).map((p) => [p.businessNumber, p])
     );
 
+    // 중복 방지: 기존 세금계산서 조회 (날짜+거래처+금액 기준)
+    const existingInvoices = await ctx.db
+      .query("taxInvoices")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    const existingInvSet = new Set(
+      existingInvoices.map((inv) => `${inv.invoiceDate}|${inv.partnerId}|${inv.totalAmount}|${inv.invoiceType}`)
+    );
+
     const dateCountCache = new Map<string, number>();
     let createdInvoices = 0;
     let createdJournals = 0;
     let createdPartners = 0;
+    let skippedDuplicates = 0;
 
     for (const item of args.items) {
       // 1. 거래처 찾기 또는 생성
@@ -68,6 +78,14 @@ export const batchCreateWithJournals = mutation({
       }
 
       if (!partner) continue;
+
+      // 중복 체크: 같은 날짜+거래처+금액+유형의 세금계산서가 이미 존재하면 건너뛰기
+      const invKey = `${item.invoiceDate}|${partner._id}|${item.totalAmount}|${item.invoiceType}`;
+      if (existingInvSet.has(invKey)) {
+        skippedDuplicates++;
+        continue;
+      }
+      existingInvSet.add(invKey);
 
       // 2. 세금계산서 등록
       const invoiceId = await ctx.db.insert("taxInvoices", {
@@ -225,6 +243,7 @@ export const batchCreateWithJournals = mutation({
       journals: createdJournals,
       newPartners: createdPartners,
       total: args.items.length,
+      skippedDuplicates,
     };
   },
 });

@@ -36,7 +36,7 @@ export const register = mutation({
     const userId = await ctx.db.insert("users", {
       ...args,
       fiscalYearStart: 1,
-      currentFiscalYear: new Date().getFullYear(),
+      currentFiscalYear: new Date().getFullYear() - 1,
     });
 
     return userId;

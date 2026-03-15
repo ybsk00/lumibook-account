@@ -92,7 +92,17 @@ export const batchCreateJournals = mutation({
     // 날짜별 기존 전표 수 캐시 (자동 채번용)
     const dateCountCache = new Map<string, number>();
 
+    // 중복 방지: 기존 전표 조회 (날짜+적요+금액 기준)
+    const existingJournals = await ctx.db
+      .query("journals")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    const existingSet = new Set(
+      existingJournals.map((j) => `${j.journalDate}|${j.description}|${j.totalAmount}`)
+    );
+
     const createdIds: string[] = [];
+    let skippedDuplicates = 0;
 
     for (const item of args.items) {
       // 대차균형 검증
@@ -101,6 +111,14 @@ export const batchCreateJournals = mutation({
       if (totalDebit !== totalCredit || totalDebit === 0) {
         continue; // 불균형 건은 건너뛰기
       }
+
+      // 중복 체크: 같은 날짜+적요+금액의 전표가 이미 존재하면 건너뛰기
+      const key = `${item.journalDate}|${item.description}|${item.totalAmount}`;
+      if (existingSet.has(key)) {
+        skippedDuplicates++;
+        continue;
+      }
+      existingSet.add(key);
 
       // 전표번호 자동 채번
       if (!dateCountCache.has(item.journalDate)) {
@@ -183,6 +201,7 @@ export const batchCreateJournals = mutation({
     return {
       created: createdIds.length,
       total: args.items.length,
+      skippedDuplicates,
     };
   },
 });
