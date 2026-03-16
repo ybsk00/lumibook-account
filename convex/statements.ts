@@ -241,12 +241,17 @@ export const getTrialBalance = query({
             ? opening + totalDebit - totalCredit
             : opening + totalCredit - totalDebit;
 
+        const isDebitNature = acc.category === "자산" || acc.category === "비용";
         return {
           code: acc.code,
           name: acc.name,
           category: acc.category,
-          debitBalance: closing > 0 ? closing : 0,
-          creditBalance: closing < 0 ? Math.abs(closing) : 0,
+          debitBalance: isDebitNature
+            ? (closing > 0 ? closing : 0)
+            : (closing < 0 ? Math.abs(closing) : 0),
+          creditBalance: isDebitNature
+            ? (closing < 0 ? Math.abs(closing) : 0)
+            : (closing > 0 ? closing : 0),
           sortOrder: acc.sortOrder,
         };
       })

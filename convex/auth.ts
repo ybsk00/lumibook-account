@@ -51,6 +51,38 @@ export const getUser = query({
   },
 });
 
+// DB 전체 초기화 (사용자+계정과목 유지, 나머지 전부 삭제)
+export const resetAllData = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const tables = [
+      "journals", "journalEntries", "taxInvoices",
+      "partners", "openingBalances", "vatPeriods", "aiJournalExamples",
+    ] as const;
+    const counts: Record<string, number> = {};
+    for (const table of tables) {
+      const rows = await ctx.db.query(table).collect();
+      counts[table] = rows.length;
+      for (const row of rows) {
+        await ctx.db.delete(row._id);
+      }
+    }
+    return counts;
+  },
+});
+
+// 모든 사용자의 회계연도를 업데이트
+export const updateAllUsersFiscalYear = mutation({
+  args: { currentFiscalYear: v.number() },
+  handler: async (ctx, args) => {
+    const users = await ctx.db.query("users").collect();
+    for (const user of users) {
+      await ctx.db.patch(user._id, { currentFiscalYear: args.currentFiscalYear });
+    }
+    return { updated: users.length };
+  },
+});
+
 // 사용자 정보 업데이트 (회사정보 수정)
 export const updateUser = mutation({
   args: {
