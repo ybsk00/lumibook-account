@@ -523,6 +523,68 @@ export const migrateSgaToPayable = mutation({
   },
 });
 
+// 특정 조건의 531 엔트리를 201+거래처로 변환
+export const convertToPayable = mutation({
+  args: {
+    userId: v.id("users"),
+    partnerId: v.id("partners"),
+    descKeyword: v.string(),
+    minAmount: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    const byCode = new Map(accounts.map((a) => [a.code, a]));
+    const acc201 = byCode.get("201")!;
+    const acc531 = byCode.get("531")!;
+    const acc113 = byCode.get("113")!;
+
+    const journals = await ctx.db
+      .query("journals")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    const bankJournals = journals.filter(
+      (j) => j.status === "confirmed" && j.journalType !== "매출" && j.journalType !== "매입"
+        && j.description.includes(args.descKeyword)
+    );
+
+    const allEntries = await ctx.db.query("journalEntries").collect();
+    let converted = 0;
+    let deletedVat = 0;
+
+    for (const journal of bankJournals) {
+      const entries = allEntries.filter((e) => e.journalId === journal._id);
+      const sgaEntry = entries.find(
+        (e) => e.debitAmount >= args.minAmount && e.accountId === acc531._id
+      );
+      if (!sgaEntry) continue;
+
+      const vatEntry = entries.find(
+        (e) => e.debitAmount > 0 && e.accountId === acc113._id
+      );
+
+      const totalAmount = sgaEntry.debitAmount + (vatEntry?.debitAmount ?? 0);
+
+      await ctx.db.patch(sgaEntry._id, {
+        accountId: acc201._id,
+        debitAmount: totalAmount,
+        partnerId: args.partnerId,
+        description: "외상매입금 상환",
+      });
+
+      if (vatEntry) {
+        await ctx.db.delete(vatEntry._id);
+        deletedVat++;
+      }
+      converted++;
+    }
+
+    return { converted, deletedVat };
+  },
+});
+
 export const deleteByJournal = mutation({
   args: { journalId: v.id("journals") },
   handler: async (ctx, args) => {
