@@ -109,8 +109,8 @@ const KEYWORD_RULES: {
   // 기부금
   { keywords: ["기부", "기부금", "후원"], accountCode: "552", exempt: true },
 
-  // 매출 (입금 시)
-  { keywords: ["매출", "용역매출", "개발대금", "계약금", "중도금", "잔금"], accountCode: "403", exempt: false },
+  // 매출대금 입금 (외상매출금 회수)
+  { keywords: ["매출", "용역매출", "개발대금", "계약금", "중도금", "잔금"], accountCode: "108", exempt: true },
 ];
 
 // 이자 관련: 입금이면 이자수익, 출금이면 이자비용
@@ -183,28 +183,24 @@ function classifyByKeyword(
 
     if (isDeposit && isCustomer) {
       const amount = tx.deposit;
-      const supplyAmount = Math.round(amount / 1.1);
-      const taxAmount = amount - supplyAmount;
       return {
         transactionId: tx.id, stage: 1, confidence: "high",
         journalType: "입금", accountCode: "102", accountName: "보통예금",
-        counterAccountCode: "403", counterAccountName: "용역매출",
+        counterAccountCode: "108", counterAccountName: "외상매출금",
         partnerName: matchedPartner.name, partnerId: matchedPartner._id,
-        vatSeparation: true, supplyAmount, taxAmount,
-        reasoning: `거래처 "${matchedPartner.name}" 매칭 (매출처) → 용역매출`,
+        vatSeparation: false, supplyAmount: amount, taxAmount: 0,
+        reasoning: `거래처 "${matchedPartner.name}" 매칭 (매출처) → 외상매출금 회수`,
       };
     }
     if (!isDeposit && isVendor) {
       const amount = tx.withdrawal;
-      const supplyAmount = Math.round(amount / 1.1);
-      const taxAmount = amount - supplyAmount;
       return {
         transactionId: tx.id, stage: 1, confidence: "high",
         journalType: "출금", accountCode: "102", accountName: "보통예금",
-        counterAccountCode: "531", counterAccountName: "외주용역비",
+        counterAccountCode: "201", counterAccountName: "외상매입금",
         partnerName: matchedPartner.name, partnerId: matchedPartner._id,
-        vatSeparation: true, supplyAmount, taxAmount,
-        reasoning: `거래처 "${matchedPartner.name}" 매칭 (매입처) → 외주용역비`,
+        vatSeparation: false, supplyAmount: amount, taxAmount: 0,
+        reasoning: `거래처 "${matchedPartner.name}" 매칭 (매입처) → 외상매입금 상환`,
       };
     }
   }
