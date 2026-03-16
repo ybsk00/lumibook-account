@@ -143,10 +143,10 @@ export const batchCreateWithJournals = mutation({
       if (item.invoiceType === "sales") {
         // 매출 분개:
         // (차) 외상매출금 108 = totalAmount
-        // (대) 매출 403 = supplyAmount
+        // (대) 매출 401(상품) 또는 403(용역) = supplyAmount
         // (대) 부가세예수금 207 = taxAmount (과세일 때)
         const acc108 = accountByCode.get("108");
-        const acc403 = accountByCode.get("403");
+        const acc401 = accountByCode.get("401"); // 상품매출 (기본)
         const acc207 = accountByCode.get("207");
 
         if (acc108) {
@@ -161,11 +161,11 @@ export const batchCreateWithJournals = mutation({
           });
         }
 
-        if (acc403) {
+        if (acc401) {
           await ctx.db.insert("journalEntries", {
             journalId,
             lineNumber: 2,
-            accountId: acc403._id,
+            accountId: acc401._id,
             partnerId: partner._id,
             debitAmount: 0,
             creditAmount: item.supplyAmount,
@@ -189,7 +189,7 @@ export const batchCreateWithJournals = mutation({
         // (차) 비용계정 = supplyAmount
         // (차) 부가세대급금 113 = taxAmount (과세일 때)
         // (대) 외상매입금 201 = totalAmount
-        const expCode = item.expenseAccountCode || "531"; // 기본: 외주용역비
+        const expCode = item.expenseAccountCode || "501"; // 기본: 매출원가
         const accExp = accountByCode.get(expCode);
         const acc113 = accountByCode.get("113");
         const acc201 = accountByCode.get("201");
