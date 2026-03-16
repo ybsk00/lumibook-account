@@ -362,6 +362,167 @@ export const migrateAccountCodes = mutation({
   },
 });
 
+// 201 중 세금계산서 거래처가 아닌 것을 판관비(531)로 복원
+export const revert201ToSga = mutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    const byCode = new Map(accounts.map((a) => [a.code, a]));
+    const acc201 = byCode.get("201")!;
+    const acc531 = byCode.get("531")!;
+    const acc113 = byCode.get("113")!;
+
+    // 세금계산서 매입 거래처 ID 목록
+    const taxInvoices = await ctx.db
+      .query("taxInvoices")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    const purchasePartnerIds = new Set(
+      taxInvoices.filter((t) => t.invoiceType === "purchase").map((t) => t.partnerId)
+    );
+
+    // 은행 전표
+    const journals = await ctx.db
+      .query("journals")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    const bankJournals = journals.filter(
+      (j) => j.status === "confirmed" && j.journalType !== "매출" && j.journalType !== "매입"
+    );
+
+    const allEntries = await ctx.db.query("journalEntries").collect();
+    let reverted = 0;
+    let kept = 0;
+    let addedVat = 0;
+
+    for (const journal of bankJournals) {
+      const entries = allEntries.filter((e) => e.journalId === journal._id);
+      const debit201 = entries.filter(
+        (e) => e.debitAmount > 0 && e.accountId === acc201._id
+      );
+      if (debit201.length === 0) continue;
+
+      // 이 전표의 거래처가 세금계산서 거래처인지 확인
+      const hasVendor = entries.some(
+        (e) => e.partnerId && purchasePartnerIds.has(e.partnerId)
+      );
+
+      if (hasVendor) {
+        kept++;
+        continue; // 세금계산서 거래처 → 201 유지
+      }
+
+      // 세금계산서 거래처가 아님 → 531 외주용역비로 복원 + 부가세 분리
+      for (const entry of debit201) {
+        const totalAmount = entry.debitAmount;
+        const supplyAmount = Math.round(totalAmount / 1.1);
+        const taxAmount = totalAmount - supplyAmount;
+
+        await ctx.db.patch(entry._id, {
+          accountId: acc531._id,
+          debitAmount: supplyAmount,
+          description: entry.description === "외상매입금 상환"
+            ? undefined : entry.description,
+        });
+
+        if (taxAmount > 0) {
+          await ctx.db.insert("journalEntries", {
+            journalId: journal._id,
+            lineNumber: 99,
+            accountId: acc113._id,
+            debitAmount: taxAmount,
+            creditAmount: 0,
+            description: "부가세",
+          });
+          addedVat++;
+        }
+        reverted++;
+      }
+    }
+
+    return { reverted, kept, addedVat };
+  },
+});
+
+// (구) 은행출금 전표의 판관비를 201 외상매입금으로 일괄 변환
+export const migrateSgaToPayable = mutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    const byCode = new Map(accounts.map((a) => [a.code, a]));
+    const acc201 = byCode.get("201");
+    const acc102 = byCode.get("102");
+    const acc113 = byCode.get("113");
+    if (!acc201 || !acc102 || !acc113) throw new Error("필수 계정 없음");
+
+    // 판관비 계정 ID 목록 (5xx 중 매출원가 제외)
+    const sgaIds = new Set(
+      accounts
+        .filter((a) => a.category === "비용" && a.subCategory === "판관비")
+        .map((a) => a._id)
+    );
+
+    // 은행 전표 (매출/매입 제외)
+    const journals = await ctx.db
+      .query("journals")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    const bankJournals = journals.filter(
+      (j) => j.status === "confirmed" && j.journalType !== "매출" && j.journalType !== "매입"
+    );
+
+    const allEntries = await ctx.db.query("journalEntries").collect();
+    let converted = 0;
+    let deletedVat = 0;
+
+    for (const journal of bankJournals) {
+      const entries = allEntries.filter((e) => e.journalId === journal._id);
+
+      // 판관비 차변 엔트리 찾기
+      const sgaEntries = entries.filter(
+        (e) => e.debitAmount > 0 && sgaIds.has(e.accountId)
+      );
+      if (sgaEntries.length === 0) continue;
+
+      // 부가세대급금 차변 엔트리
+      const vatEntries = entries.filter(
+        (e) => e.debitAmount > 0 && e.accountId === acc113._id
+      );
+
+      // 판관비 + 부가세 합산 → 201 1건으로 변환
+      const totalDebit = sgaEntries.reduce((s, e) => s + e.debitAmount, 0)
+        + vatEntries.reduce((s, e) => s + e.debitAmount, 0);
+
+      // 첫 번째 판관비 엔트리를 201로 변환
+      await ctx.db.patch(sgaEntries[0]._id, {
+        accountId: acc201._id,
+        debitAmount: totalDebit,
+        description: "외상매입금 상환",
+      });
+      converted++;
+
+      // 나머지 판관비 엔트리 삭제
+      for (let i = 1; i < sgaEntries.length; i++) {
+        await ctx.db.delete(sgaEntries[i]._id);
+        deletedVat++;
+      }
+      // 부가세대급금 엔트리 삭제
+      for (const ve of vatEntries) {
+        await ctx.db.delete(ve._id);
+        deletedVat++;
+      }
+    }
+
+    return { converted, deletedVat };
+  },
+});
+
 export const deleteByJournal = mutation({
   args: { journalId: v.id("journals") },
   handler: async (ctx, args) => {
