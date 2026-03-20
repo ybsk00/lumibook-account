@@ -21,7 +21,7 @@ export const BS_ASSET_MAPPING: HometaxField[] = [
   { field: 11, accountCodes: [], label: "유동자산 소계", computed: "sum" },
   { field: 20, accountCodes: ["151"], label: "토지" },
   { field: 21, accountCodes: ["152"], label: "건물" },
-  { field: 22, accountCodes: ["154"], label: "기계장치" },
+  { field: 22, accountCodes: ["153", "154"], label: "구축물·기계장치" },
   { field: 23, accountCodes: ["155", "156"], label: "차량·비품" },
   { field: 24, accountCodes: ["157"], label: "감가상각누계액", negative: true },
   { field: 25, accountCodes: ["160", "161"], label: "무형자산" },
