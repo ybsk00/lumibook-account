@@ -82,7 +82,7 @@ export const batchCreateWithJournals = mutation({
         userId: args.userId,
         journalNumber,
         journalDate,
-        journalType: "매입",
+        journalType: "출금",
         description: desc,
         totalAmount: item.totalAmount,
         status: "confirmed",
@@ -90,13 +90,13 @@ export const batchCreateWithJournals = mutation({
         fiscalMonth,
       });
 
-      // Journal entries:
-      // (차) 소모품비 524 = paymentAmount (기본 비용 계정)
+      // Journal entries (비용 처리):
+      // (차) 소모품비 524 = paymentAmount (기본 비용 계정, 전표에서 수정 가능)
       // (차) 부가세대급금 113 = vatAmount
-      // (대) 미지급금 203 = totalAmount
+      // (대) 보통예금 102 = totalAmount
       const acc524 = accountByCode.get("524");
       const acc113 = accountByCode.get("113");
-      const acc203 = accountByCode.get("203");
+      const acc102 = accountByCode.get("102");
 
       let lineNum = 1;
 
@@ -122,11 +122,11 @@ export const batchCreateWithJournals = mutation({
         });
       }
 
-      if (acc203) {
+      if (acc102) {
         await ctx.db.insert("journalEntries", {
           journalId,
           lineNumber: lineNum,
-          accountId: acc203._id,
+          accountId: acc102._id,
           debitAmount: 0,
           creditAmount: item.totalAmount,
           description: desc,
