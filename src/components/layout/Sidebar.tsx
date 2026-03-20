@@ -20,6 +20,7 @@ import {
   ClipboardList,
   Calculator,
   Upload,
+  CreditCard,
 } from "lucide-react";
 
 const menuGroups = [
@@ -52,6 +53,8 @@ const menuGroups = [
     items: [
       { href: "/vat/invoices", label: "세금계산서", icon: Receipt },
       { href: "/vat/invoices/upload", label: "계산서 업로드", icon: Upload },
+      { href: "/vat/online-sales/upload", label: "온라인매출 업로드", icon: Upload },
+      { href: "/vat/credit-card/upload", label: "신용카드 업로드", icon: CreditCard },
       { href: "/vat", label: "부가세 신고", icon: Calculator },
     ],
   },

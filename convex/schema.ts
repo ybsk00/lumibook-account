@@ -170,4 +170,33 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_description", ["inputDescription"]),
+
+  // ─── 온라인매출 ───
+  onlineSales: defineTable({
+    userId: v.id("users"),
+    salesPeriod: v.string(),       // "2025-01" (YYYY-MM)
+    count: v.number(),             // 건수
+    salesAmount: v.number(),       // 판매금액
+    platformName: v.string(),      // "네이버쇼핑", "쿠팡" 등
+    periodLabel: v.string(),       // "1기" | "2기"
+    fiscalYear: v.number(),
+    journalId: v.optional(v.id("journals")),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_fiscal", ["userId", "fiscalYear"])
+    .index("by_platform", ["platformName"]),
+
+  // ─── 사업용신용카드 ───
+  creditCardExpenses: defineTable({
+    userId: v.id("users"),
+    period: v.string(),            // "2025-01" (YYYY-MM)
+    paymentAmount: v.number(),     // 결제금액
+    vatAmount: v.number(),         // 부가세
+    totalAmount: v.number(),       // 합계
+    periodLabel: v.string(),       // "1기" | "2기"
+    fiscalYear: v.number(),
+    journalId: v.optional(v.id("journals")),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_fiscal", ["userId", "fiscalYear"]),
 });
