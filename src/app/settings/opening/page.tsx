@@ -143,12 +143,35 @@ export default function OpeningBalancePage() {
           const idx = newRows.findIndex((r) => r.code === item.code);
           if (idx === -1) continue;
 
-          if (newRows[idx].category === "자산") {
-            newRows[idx].debitBalance = item.amount;
-            newRows[idx].creditBalance = 0;
-          } else {
+          const amount = Math.abs(item.amount);
+          const isNegative = item.amount < 0;
+          const cat = newRows[idx].category;
+          const code = newRows[idx].code;
+
+          // 감가상각누계액(157): 자산 차감 항목 → 대변
+          if (code === "157") {
             newRows[idx].debitBalance = 0;
-            newRows[idx].creditBalance = item.amount;
+            newRows[idx].creditBalance = amount;
+          }
+          // 자산 계정: 양수 → 차변, 음수 → 대변
+          else if (cat === "자산") {
+            if (isNegative) {
+              newRows[idx].debitBalance = 0;
+              newRows[idx].creditBalance = amount;
+            } else {
+              newRows[idx].debitBalance = amount;
+              newRows[idx].creditBalance = 0;
+            }
+          }
+          // 부채/자본 계정: 양수 → 대변, 음수(결손금 등) → 차변
+          else {
+            if (isNegative) {
+              newRows[idx].debitBalance = amount;
+              newRows[idx].creditBalance = 0;
+            } else {
+              newRows[idx].debitBalance = 0;
+              newRows[idx].creditBalance = amount;
+            }
           }
           mapped++;
         }

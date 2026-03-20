@@ -23,10 +23,13 @@ const PARSE_PROMPT = `너는 한국 표준재무제표(재무상태표/대차대
 1. 금액은 원 단위 정수 (콤마 제거)
 2. 계정명이 정확히 일치하지 않아도 유사하면 매핑 (예: "현금및현금성자산" → 101, "단기금융상품" → 103)
 3. 소계/합계/총계 행은 무시하고 개별 계정만 추출
-4. 감가상각누계액(157)은 양수로 추출
+4. 감가상각누계액(157)은 양수로 추출 (차감 항목이지만 금액 자체는 양수)
 5. 금액이 0이거나 없는 계정은 제외
 6. "당기" 또는 "기말" 금액을 추출 ("전기" 또는 "기초"는 무시)
 7. 여러 페이지에 걸친 재무제표도 모두 파싱
+8. 결손금(미처리결손금, 미처분이익잉여금이 음수)은 반드시 음수로 반환 (예: -116,382,981)
+9. 감가상각누계액이 여러 개 있으면 합산하여 157 하나로 반환
+10. 시설장치, 기계장치 → 154, 비품 → 156, 구축물 → 153으로 매핑
 
 ## 응답 형식 (순수 JSON 배열만 — 마크다운 없이)
 [
@@ -92,10 +95,10 @@ export const parseBalanceDocument = action({
         if (!Array.isArray(parsed)) {
           throw new Error("파싱 결과가 배열이 아닙니다.");
         }
-        // 유효성 검증
+        // 유효성 검증 (음수도 허용 — 결손금 등)
         return parsed.filter(
           (item: { code?: string; amount?: number }) =>
-            item.code && typeof item.amount === "number" && item.amount > 0
+            item.code && typeof item.amount === "number" && item.amount !== 0
         );
       }
     } catch (parseErr) {
